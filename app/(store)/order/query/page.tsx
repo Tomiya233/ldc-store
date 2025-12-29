@@ -239,7 +239,7 @@ export default function OrderQueryPage() {
                     <div>
                       <span className="text-zinc-500">金额</span>
                       <p className="font-medium text-violet-600">
-                        ¥{order.totalAmount}
+                        {order.totalAmount} LDC
                       </p>
                     </div>
                     <div>

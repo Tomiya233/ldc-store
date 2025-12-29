@@ -59,10 +59,10 @@ export function ProductCard({
 
       <div className="flex items-center gap-3 shrink-0">
         <div className="text-right">
-          <div className="font-semibold">¥{price}</div>
+          <div className="font-semibold">{price} LDC</div>
           {hasDiscount && (
             <div className="text-xs text-muted-foreground line-through">
-              ¥{originalPrice}
+              {originalPrice} LDC
             </div>
           )}
         </div>

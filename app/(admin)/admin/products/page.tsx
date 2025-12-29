@@ -98,10 +98,10 @@ export default async function ProductsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-medium">¥{product.price}</span>
+                        <span className="font-medium">{product.price} LDC</span>
                         {product.originalPrice && (
                           <span className="ml-1 text-xs text-zinc-400 line-through">
-                            ¥{product.originalPrice}
+                            {product.originalPrice} LDC
                           </span>
                         )}
                       </TableCell>

@@ -205,7 +205,7 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
             </div>
             <div>
               <span className="text-muted-foreground">金额</span>
-              <p className="font-semibold">¥{order.totalAmount}</p>
+              <p className="font-semibold">{order.totalAmount} LDC</p>
             </div>
             <div>
               <span className="text-muted-foreground">数量</span>

@@ -136,7 +136,7 @@ export default async function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="今日销售额"
-          value={`¥${stats.todaySales.total}`}
+          value={`${stats.todaySales.total} LDC`}
           description="今日完成订单金额"
           icon={DollarSign}
         />
@@ -235,7 +235,7 @@ export default async function AdminDashboard() {
                           {order.productName}
                         </p>
                         <p className="text-xs text-zinc-500">
-                          {order.orderNo} · ¥{order.totalAmount}
+                          {order.orderNo} · {order.totalAmount} LDC
                         </p>
                       </div>
                       <Badge className={status.color}>{status.label}</Badge>

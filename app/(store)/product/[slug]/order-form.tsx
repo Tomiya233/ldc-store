@@ -206,7 +206,7 @@ export function OrderForm({
       <div className="flex items-center justify-between pt-2">
         <div>
           <span className="text-sm text-muted-foreground">{productName} × {quantity}</span>
-          <div className="text-xl font-bold">¥{totalPrice}</div>
+          <div className="text-xl font-bold">{totalPrice} LDC</div>
         </div>
         <Button type="submit" disabled={isPending}>
           {isPending ? (

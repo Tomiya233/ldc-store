@@ -152,7 +152,7 @@ export default async function OrdersPage() {
                           {order.quantity}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          ¥{order.totalAmount}
+                          {order.totalAmount} LDC
                         </TableCell>
                         <TableCell>
                           {paymentMethodLabels[order.paymentMethod] || order.paymentMethod}
