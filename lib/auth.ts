@@ -42,12 +42,14 @@ const LinuxDoProvider = {
     trust_level?: number;
     silenced?: boolean;
   }) {
+    console.log("[LinuxDoProvider] profile 原始数据:", JSON.stringify(profile, null, 2));
+    
     // 处理头像URL模板，替换 {size} 为实际尺寸
     const avatarUrl = profile.avatar_template
       ? profile.avatar_template.replace("{size}", "120")
       : undefined;
     
-    return {
+    const result = {
       id: String(profile.id),
       name: profile.name || profile.username,
       email: `${profile.username}@linux.do`, // Linux DO 不返回邮箱，使用用户名构造
@@ -57,6 +59,9 @@ const LinuxDoProvider = {
       active: profile.active,
       silenced: profile.silenced,
     };
+    
+    console.log("[LinuxDoProvider] profile 返回数据:", JSON.stringify(result, null, 2));
+    return result;
   },
 };
 
@@ -104,6 +109,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
+        console.log("[JWT Callback] user:", JSON.stringify(user, null, 2));
+        console.log("[JWT Callback] account provider:", account?.provider);
+        
         token.id = user.id;
         token.role = (user as { role?: string }).role;
         // 保存 OAuth 用户的额外信息
@@ -114,6 +122,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.silenced = (user as { silenced?: boolean }).silenced;
           token.provider = "linux-do";
         }
+        
+        console.log("[JWT Callback] token:", JSON.stringify(token, null, 2));
       }
       return token;
     },

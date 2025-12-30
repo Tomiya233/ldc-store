@@ -354,13 +354,15 @@ export async function adminCompleteOrder(
 export async function getUserOrders() {
   try {
     const session = await auth();
-    const user = session?.user as { id?: string; provider?: string } | undefined;
+    const user = session?.user as { id?: string; username?: string; provider?: string } | undefined;
+
+    console.log("[getUserOrders] session.user:", JSON.stringify(user, null, 2));
 
     if (!user?.id || user.provider !== "linux-do") {
       return { success: false, message: "请先登录", data: [] };
     }
 
-    console.log("[getUserOrders] 查询用户订单, userId:", user.id);
+    console.log("[getUserOrders] 查询用户订单, userId:", user.id, "username:", user.username);
 
     const userOrders = await db.query.orders.findMany({
       where: eq(orders.userId, user.id),
