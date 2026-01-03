@@ -146,7 +146,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       return { order: newOrder, totalAmount };
     });
 
-    // 4. 调用支付接口（如果是 LDC 支付）
+    // 4. 刷新页面缓存，确保库存显示准确
+    revalidatePath("/");
+    revalidatePath(`/product/${product.slug}`);
+
+    // 5. 调用支付接口（如果是 LDC 支付）
     let paymentForm: PaymentFormData | undefined;
     if (paymentMethod === "ldc") {
       try {
@@ -194,6 +198,8 @@ export async function handlePaymentSuccess(
   tradeNo: string
 ): Promise<boolean> {
   try {
+    let productSlug: string | null = null;
+
     await db.transaction(async (tx) => {
       // 1. 获取并更新订单
       const [order] = await tx
@@ -229,11 +235,23 @@ export async function handlePaymentSuccess(
             updatedAt: new Date(),
           })
           .where(eq(products.id, order.productId));
+
+        // 获取商品 slug 用于刷新缓存
+        const product = await tx.query.products.findFirst({
+          where: eq(products.id, order.productId),
+          columns: { slug: true },
+        });
+        productSlug = product?.slug || null;
       }
     });
 
+    // 刷新页面缓存
     revalidatePath("/admin/orders");
     revalidatePath("/admin");
+    revalidatePath("/");
+    if (productSlug) {
+      revalidatePath(`/product/${productSlug}`);
+    }
     return true;
   } catch (error) {
     console.error("处理支付成功回调失败:", error);
@@ -286,7 +304,11 @@ export async function releaseExpiredOrders(): Promise<number> {
       return expiredOrders.length;
     });
 
-    revalidatePath("/admin/orders");
+    // 刷新页面缓存
+    if (result > 0) {
+      revalidatePath("/admin/orders");
+      revalidatePath("/");
+    }
     return result;
   } catch (error) {
     console.error("释放过期订单失败:", error);
@@ -308,6 +330,8 @@ export async function adminCompleteOrder(
   }
 
   try {
+    let productSlug: string | null = null;
+
     await db.transaction(async (tx) => {
       // 1. 更新订单状态
       const [order] = await tx
@@ -343,11 +367,23 @@ export async function adminCompleteOrder(
             updatedAt: new Date(),
           })
           .where(eq(products.id, order.productId));
+
+        // 获取商品 slug 用于刷新缓存
+        const product = await tx.query.products.findFirst({
+          where: eq(products.id, order.productId),
+          columns: { slug: true },
+        });
+        productSlug = product?.slug || null;
       }
     });
 
+    // 刷新页面缓存
     revalidatePath("/admin/orders");
     revalidatePath("/admin");
+    revalidatePath("/");
+    if (productSlug) {
+      revalidatePath(`/product/${productSlug}`);
+    }
     return { success: true, message: "订单已完成" };
   } catch (error) {
     console.error("手动完成订单失败:", error);
