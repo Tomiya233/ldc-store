@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Github } from "lucide-react";
+import { Github, Hammer } from "lucide-react";
 
 interface FooterProps {
   siteName?: string;
@@ -10,7 +10,9 @@ export function Footer({ siteName = "LDC Store" }: FooterProps) {
     <footer className="border-t border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex flex-col items-center justify-center gap-1 py-4 max-w-3xl px-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <span>© {new Date().getFullYear()} {siteName}</span>
+          <span>
+            © {new Date().getFullYear()} {siteName}
+          </span>
           <span>🌟</span>
           <Link
             href="https://github.com/gptkong/ldc-store"
@@ -21,8 +23,14 @@ export function Footer({ siteName = "LDC Store" }: FooterProps) {
             <Github className="h-3.5 w-3.5" />
             <span>GitHub</span>
           </Link>
+          <span className="text-xs">
+            ({process.env.NEXT_PUBLIC_COMMIT_SHA?.slice(0, 7) || "dev"})
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground/60">本站与 Linux DO 官方无任何关系</span>
+
+        <span className="text-xs text-muted-foreground/60">
+          本站与 Linux DO 官方无任何关系
+        </span>
       </div>
     </footer>
   );
