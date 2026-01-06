@@ -96,63 +96,71 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          订单管理
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          查看和管理所有订单
-        </p>
-      </div>
+      <div className="space-y-4">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            订单管理
+          </h1>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            查看和管理所有订单
+          </p>
+        </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900">
-                <Clock className="h-5 w-5 text-amber-600" />
+        {/* Stats */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card className="py-4">
+            <CardContent className="px-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/40">
+                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-semibold leading-none text-zinc-900 dark:text-zinc-50">
+                    {result.stats.pending}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    待支付
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {result.stats.pending}
-                </p>
-                <p className="text-sm text-zinc-500">待支付</p>
+            </CardContent>
+          </Card>
+          <Card className="py-4">
+            <CardContent className="px-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/40">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-semibold leading-none text-zinc-900 dark:text-zinc-50">
+                    {result.stats.completed}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    已完成
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </CardContent>
+          </Card>
+          <Card className="py-4">
+            <CardContent className="px-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950/40">
+                  <RotateCcw className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-semibold leading-none text-zinc-900 dark:text-zinc-50">
+                    {result.stats.refund_pending}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    待审核退款
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {result.stats.completed}
-                </p>
-                <p className="text-sm text-zinc-500">已完成</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
-                <RotateCcw className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {result.stats.refund_pending}
-                </p>
-                <p className="text-sm text-zinc-500">待审核退款</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Orders Table */}
