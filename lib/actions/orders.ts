@@ -20,6 +20,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { getExpireTime } from "@/lib/time";
+import { getOrderExpireMinutes } from "@/lib/order-config";
 import { logger, getRequestIdFromHeaders } from "@/lib/logger";
 
 /**
@@ -40,7 +41,7 @@ function generateOrderNo(): string {
 }
 
 // 订单过期时间（分钟）
-const ORDER_EXPIRE_MINUTES = parseInt(process.env.ORDER_EXPIRE_MINUTES || "10", 10);
+const ORDER_EXPIRE_MINUTES = getOrderExpireMinutes();
 
 export interface CreateOrderResult {
   success: boolean;

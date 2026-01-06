@@ -65,8 +65,8 @@ export function getUtcDayEnd(date: Date = new Date()): Date {
  * @returns 过期时间的 Date 对象
  *
  * @example
- * // 10 分钟后过期
- * const expireTime = getExpireTime(10);
+ * // 5 分钟后过期
+ * const expireTime = getExpireTime(5);
  */
 export function getExpireTime(minutes: number): Date {
   return new Date(Date.now() + minutes * 60 * 1000);
@@ -157,4 +157,3 @@ export function formatRemainingTime(seconds: number): string {
 
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
-

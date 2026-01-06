@@ -30,16 +30,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getStatsTimeZone, getTodayRangeSql } from "@/lib/time/stats";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { getOrderExpireMinutes } from "@/lib/order-config";
 
 const LOW_STOCK_THRESHOLD = 10;
 const LAST_N_DAYS = 7;
 
 type TrendDirection = "up" | "down" | "flat";
-
-function safeParseInt(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(String(value ?? ""), 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
 
 function formatPercent(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -123,7 +119,7 @@ async function getDashboardStats() {
   const statsTimeZone = getStatsTimeZone();
   const { start: todayStart, end: tomorrowStart } = getTodayRangeSql(statsTimeZone);
 
-  const orderExpireMinutes = safeParseInt(process.env.ORDER_EXPIRE_MINUTES, 10);
+  const orderExpireMinutes = getOrderExpireMinutes();
 
   const [
     todaySales,

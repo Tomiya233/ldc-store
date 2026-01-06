@@ -114,7 +114,7 @@ NEXT_PUBLIC_SITE_NAME="LDC Store"
 NEXT_PUBLIC_SITE_DESCRIPTION="基于 Linux DO Credit 的虚拟商品自动发卡平台"
 
 # 订单过期时间（分钟）
-ORDER_EXPIRE_MINUTES=10
+ORDER_EXPIRE_MINUTES=5
 
 # 统计口径时区（可选，默认 Asia/Shanghai / UTC+8）
 # 用于后台仪表盘“今日销售额”等统计的日界线口径
@@ -175,7 +175,7 @@ pnpm test:coverage
 | `LINUXDO_USERINFO_URL` | ❌ | - | 自定义 OAuth2 用户信息端点 |
 | `NEXT_PUBLIC_SITE_NAME` | ❌ | - | 网站名称（显示在 Header 和页面标题）|
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | ❌ | - | 网站描述（用于 SEO）|
-| `ORDER_EXPIRE_MINUTES` | ❌ | `10` | 订单过期时间（分钟）|
+| `ORDER_EXPIRE_MINUTES` | ❌ | `5` | 订单过期时间（分钟）|
 | `STATS_TIMEZONE` | ❌ | `Asia/Shanghai` | 统计口径时区（用于“今日销售额”等报表口径，建议使用 IANA 时区名）|
 
 ### 🕒 时间与统计口径
