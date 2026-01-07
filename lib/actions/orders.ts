@@ -20,7 +20,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { getExpireTime } from "@/lib/time";
-import { getOrderExpireMinutes } from "@/lib/order-config";
+import { getSystemSettings } from "@/lib/actions/system-settings";
 import { logger, getRequestIdFromHeaders } from "@/lib/logger";
 
 /**
@@ -39,9 +39,6 @@ function generateOrderNo(): string {
   const random = nanoid(6).toUpperCase();
   return `LD${timestamp}${random}`;
 }
-
-// 订单过期时间（分钟）
-const ORDER_EXPIRE_MINUTES = getOrderExpireMinutes();
 
 export interface CreateOrderResult {
   success: boolean;
@@ -111,6 +108,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       };
     }
 
+    const { orderExpireMinutes } = await getSystemSettings();
+
     // 3. 使用事务处理订单创建和卡密锁定
     const result = await db.transaction(async (tx) => {
       // 3.1 查询可用库存（使用 FOR UPDATE 锁定行）
@@ -129,7 +128,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       const orderNo = generateOrderNo();
       const totalAmount = parseFloat(product.price) * quantity;
       // 计算订单过期时间（UTC 时间戳，存入数据库时自动转换）
-      const expiredAt = getExpireTime(ORDER_EXPIRE_MINUTES);
+      const expiredAt = getExpireTime(orderExpireMinutes);
 
       // 3.2 创建订单
       const [newOrder] = await tx

@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   FolderTree,
   Settings,
+  Activity,
   LogOut,
   Store,
   ChevronUp,
@@ -78,8 +79,13 @@ const mainNavItems = [
 
 const settingsNavItems = [
   {
-    title: "系统设置",
+    title: "系统状态",
     href: "/admin/settings",
+    icon: Activity,
+  },
+  {
+    title: "系统配置",
+    href: "/admin/system-config",
     icon: Settings,
   },
 ];
@@ -244,8 +250,14 @@ export function AppSidebar() {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
                     <Link href="/admin/settings" className="flex items-center gap-2">
+                      <Activity className="size-4" />
+                      <span>系统状态</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+                    <Link href="/admin/system-config" className="flex items-center gap-2">
                       <Settings className="size-4" />
-                      <span>系统设置</span>
+                      <span>系统配置</span>
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>

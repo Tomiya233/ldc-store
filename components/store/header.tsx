@@ -2,7 +2,21 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { User, LogOut, Package, Search, Store } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Package,
+  Search,
+  Store,
+  Sparkles,
+  ShoppingCart,
+  CreditCard,
+  Gem,
+  Rocket,
+  Shield,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LinuxDoLogo } from "@/components/icons/linuxdo-logo";
 import { Button } from "@/components/ui/button";
@@ -20,6 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 interface HeaderProps {
   siteName?: string;
+  siteIcon?: string;
 }
 
 type StoreIconEasterEggVariant =
@@ -59,7 +74,19 @@ const STORE_ICON_VARIANT_STYLES: Record<StoreIconEasterEggVariant, string> = {
   indigo: "bg-indigo-500/15 text-indigo-800 ring-indigo-500/30 dark:text-indigo-400",
 };
 
-export function Header({ siteName = "LDC Store" }: HeaderProps) {
+const SITE_ICON_MAP: Record<string, LucideIcon> = {
+  Store,
+  Sparkles,
+  ShoppingCart,
+  Package,
+  CreditCard,
+  Gem,
+  Rocket,
+  Shield,
+  Zap,
+};
+
+export function Header({ siteName = "LDC Store", siteIcon }: HeaderProps) {
   const { data: session, status } = useSession();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [storeIconEasterEggKey, setStoreIconEasterEggKey] = useState(0);
@@ -121,6 +148,8 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
     };
   }, []);
 
+  const SiteIcon = (siteIcon && SITE_ICON_MAP[siteIcon]) || Store;
+
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
@@ -138,7 +167,7 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
               .join(" ")}
             title="点我一下"
           >
-            <Store className="h-4 w-4" />
+            <SiteIcon className="h-4 w-4" />
           </span>
           <span className="min-w-0 truncate max-w-[45vw] sm:max-w-none">{siteName}</span>
         </Link>

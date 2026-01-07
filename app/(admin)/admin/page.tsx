@@ -24,13 +24,12 @@ import {
   CreditCard,
   Megaphone,
   Plus,
-  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getStatsTimeZone, getTodayRangeSql } from "@/lib/time/stats";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { getOrderExpireMinutes } from "@/lib/order-config";
+import { getSystemSettings } from "@/lib/actions/system-settings";
 
 const LOW_STOCK_THRESHOLD = 10;
 const LAST_N_DAYS = 7;
@@ -119,7 +118,7 @@ async function getDashboardStats() {
   const statsTimeZone = getStatsTimeZone();
   const { start: todayStart, end: tomorrowStart } = getTodayRangeSql(statsTimeZone);
 
-  const orderExpireMinutes = getOrderExpireMinutes();
+  const { orderExpireMinutes } = await getSystemSettings();
 
   const [
     todaySales,
@@ -347,8 +346,8 @@ export default async function AdminDashboard() {
           </Button>
           <Button asChild size="sm" variant="outline" className="gap-2">
             <Link href="/admin/settings">
-              <Settings className="h-4 w-4" />
-              设置
+              <Activity className="h-4 w-4" />
+              系统状态
             </Link>
           </Button>
         </div>

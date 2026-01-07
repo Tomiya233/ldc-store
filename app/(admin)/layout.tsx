@@ -55,7 +55,7 @@ export default async function AdminLayout({
                 <p className="mt-2">
                   请前往{" "}
                   <Link href="/admin/settings" className="underline underline-offset-4">
-                    系统设置
+                    系统状态
                   </Link>{" "}
                   查看说明；修改环境变量后需重启服务。
                 </p>

@@ -3,8 +3,22 @@ export const dynamic = "force-dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Globe, CreditCard, CheckCircle, XCircle } from "lucide-react";
+import Link from "next/link";
 
-export default function SettingsPage() {
+async function getDbSystemSettingsOrNull() {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    // 为什么这样做：该页面用于“环境检查”；当 DATABASE_URL 未配置时也应可打开，因此用动态 import 避免在模块加载阶段直接抛错。
+    const { getSystemSettings } = await import("@/lib/actions/system-settings");
+    return await getSystemSettings();
+  } catch (error) {
+    console.error("加载系统配置失败:", error);
+    return null;
+  }
+}
+
+export default async function SystemStatusPage() {
+  const dbSettings = await getDbSystemSettingsOrNull();
   // 从环境变量读取配置
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LDC Store";
   const siteDescription = process.env.NEXT_PUBLIC_SITE_DESCRIPTION || "未配置";
@@ -72,10 +86,14 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          系统设置
+          系统状态
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          查看当前系统配置状态
+          查看当前系统运行与配置状态（可热更新配置请前往{" "}
+          <Link href="/admin/system-config" className="underline underline-offset-4">
+            系统配置
+          </Link>
+          ）
         </p>
       </div>
 
@@ -123,29 +141,66 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Globe className="h-5 w-5" />
-              网站配置
+              站点配置
             </CardTitle>
             <CardDescription>
-              通过环境变量配置，修改后需重启服务
+              系统配置（DB）优先，环境变量作为兜底；敏感配置仍需通过环境变量修改并重启
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">网站名称</p>
-                <p className="font-medium">{siteName}</p>
+                <p className="font-medium">{dbSettings?.siteName || siteName}</p>
                 <p className="text-xs text-muted-foreground">
-                  环境变量: NEXT_PUBLIC_SITE_NAME
+                  {dbSettings ? (
+                    <>
+                      系统配置（DB）已生效；环境变量兜底: <code>NEXT_PUBLIC_SITE_NAME</code>
+                    </>
+                  ) : (
+                    <>
+                      环境变量: <code>NEXT_PUBLIC_SITE_NAME</code>
+                    </>
+                  )}
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">网站描述</p>
-                <p className="font-medium">{siteDescription}</p>
+                <p className="font-medium">{dbSettings?.siteDescription || siteDescription}</p>
                 <p className="text-xs text-muted-foreground">
-                  环境变量: NEXT_PUBLIC_SITE_DESCRIPTION
+                  {dbSettings ? (
+                    <>
+                      系统配置（DB）已生效；环境变量兜底: <code>NEXT_PUBLIC_SITE_DESCRIPTION</code>
+                    </>
+                  ) : (
+                    <>
+                      环境变量: <code>NEXT_PUBLIC_SITE_DESCRIPTION</code>
+                    </>
+                  )}
                 </p>
               </div>
             </div>
+
+            {dbSettings ? (
+              <div className="rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">热更新配置</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    网站图标：<code>{dbSettings.siteIcon}</code>
+                  </li>
+                  <li>
+                    订单过期时间：<code>{dbSettings.orderExpireMinutes}</code> 分钟
+                  </li>
+                </ul>
+                <p className="mt-2">
+                  前往{" "}
+                  <Link href="/admin/system-config" className="underline underline-offset-4">
+                    系统配置
+                  </Link>{" "}
+                  可直接修改并热生效。
+                </p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

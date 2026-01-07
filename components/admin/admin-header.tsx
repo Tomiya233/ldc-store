@@ -23,7 +23,8 @@ const routeNames: Record<string, string> = {
   "/admin/categories": "分类管理",
   "/admin/cards": "卡密管理",
   "/admin/orders": "订单管理",
-  "/admin/settings": "系统设置",
+  "/admin/settings": "系统状态",
+  "/admin/system-config": "系统配置",
 };
 
 function getBreadcrumbs(pathname: string) {
@@ -106,4 +107,3 @@ export function AdminHeader() {
     </header>
   );
 }
-
