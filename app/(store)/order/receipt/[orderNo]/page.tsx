@@ -6,12 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { OrderReceiptView } from "@/components/store/order-receipt-view";
 import { getOrderReceiptByNo } from "@/lib/actions/orders";
 
-export default async function OrderReceiptPage({
-  params,
-}: {
-  params: { orderNo: string };
-}) {
-  const result = await getOrderReceiptByNo(params.orderNo);
+interface OrderReceiptPageProps {
+  // Next 在不同渲染路径下可能将 params 包装为 Promise；这里统一 await，避免读取到 undefined。
+  params: Promise<{ orderNo: string }>;
+}
+
+export default async function OrderReceiptPage({ params }: OrderReceiptPageProps) {
+  const { orderNo } = await params;
+  const result = await getOrderReceiptByNo(orderNo);
 
   if (!result.success || !result.data) {
     return (
@@ -41,4 +43,3 @@ export default async function OrderReceiptPage({
 
   return <OrderReceiptView receipt={result.data} />;
 }
-
