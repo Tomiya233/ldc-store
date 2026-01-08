@@ -18,7 +18,6 @@ export type OrderReceiptViewData = {
   totalAmount: string;
   paidAt: Date | string | null;
   username: string | null;
-  tradeNo: string | null;
 };
 
 function PosterField({
@@ -47,19 +46,25 @@ function PosterField({
   );
 }
 
-export function OrderReceiptView({ receipt }: { receipt: OrderReceiptViewData }) {
+export function OrderReceiptView({
+  receipt,
+  merchantName,
+}: {
+  receipt: OrderReceiptViewData;
+  merchantName?: string;
+}) {
   const posterRef = useRef<HTMLDivElement | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
 
-  const siteName = useMemo(
-    () => process.env.NEXT_PUBLIC_SITE_NAME || "LDC Store",
-    []
-  );
+  const resolvedMerchantName = useMemo(() => {
+    const normalized = merchantName?.trim();
+    if (normalized) return normalized;
+    return process.env.NEXT_PUBLIC_SITE_NAME || "LDC Store";
+  }, [merchantName]);
 
   const paidAtText = receipt.paidAt ? formatLocalTime(receipt.paidAt) : "—";
   const username = receipt.username?.trim() ? receipt.username.trim() : "—";
-  const tradeNo = receipt.tradeNo?.trim() ? receipt.tradeNo.trim() : "—";
 
   useEffect(() => {
     // 为什么这样做：确保服务端渲染与首屏 hydration 输出一致，避免因为 window 访问导致的 hydration mismatch。
@@ -82,13 +87,12 @@ export function OrderReceiptView({ receipt }: { receipt: OrderReceiptViewData })
 
   const copyReceiptText = async () => {
     const text = [
-      `${siteName} - 支付成功凭证`,
+      `${resolvedMerchantName} - 支付成功凭证`,
       `订单号：${receipt.orderNo}`,
       `商品：${receipt.productName}`,
       `金额：${receipt.totalAmount} LDC`,
       `支付时间：${paidAtText}`,
       `用户名：${username}`,
-      `tradeNo：${tradeNo}`,
       shareUrl ? `链接：${shareUrl}` : undefined,
     ]
       .filter((line): line is string => typeof line === "string")
@@ -137,22 +141,22 @@ export function OrderReceiptView({ receipt }: { receipt: OrderReceiptViewData })
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                  <CheckCircle2 className="h-5 w-5" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <ReceiptText className="h-4 w-4 text-muted-foreground" />
+                  <h1 className="text-lg font-semibold leading-tight">
+                    {resolvedMerchantName}
+                  </h1>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                    <h1 className="text-lg font-semibold leading-tight">
-                      支付成功凭证
-                    </h1>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    用于客服核验/对外分享（不包含卡密）
-                  </p>
-                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  支付成功凭证 · 用于客服核验/对外分享（不包含卡密）
+                </p>
               </div>
             </div>
+          </div>
             <Badge className="shrink-0 bg-emerald-600 text-white hover:bg-emerald-600/90">
               已支付
             </Badge>
@@ -165,7 +169,7 @@ export function OrderReceiptView({ receipt }: { receipt: OrderReceiptViewData })
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold">{siteName}</div>
+                  <div className="text-base font-semibold">{resolvedMerchantName}</div>
                   <div className="mt-1 text-xs text-slate-500">
                     支付成功凭证 · Payment Receipt
                   </div>
@@ -213,7 +217,6 @@ export function OrderReceiptView({ receipt }: { receipt: OrderReceiptViewData })
                   />
                   <PosterField label="支付时间" value={paidAtText} />
                   <PosterField label="用户名" value={username} mono />
-                  <PosterField label="tradeNo" value={tradeNo} mono />
                 </div>
               </div>
 

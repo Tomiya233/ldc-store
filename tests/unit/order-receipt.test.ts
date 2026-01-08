@@ -98,7 +98,6 @@ describe("getOrderReceiptByNo", () => {
       totalAmount: "10.00",
       paidAt,
       username: "  tester  ",
-      tradeNo: "   ",
     });
 
     const result = await getOrderReceiptByNo("LD_OK");
@@ -110,8 +109,6 @@ describe("getOrderReceiptByNo", () => {
       totalAmount: "10.00",
       paidAt,
       username: "tester",
-      tradeNo: null,
     });
   });
 });
-

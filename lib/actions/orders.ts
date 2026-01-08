@@ -569,7 +569,6 @@ export interface OrderReceiptData {
   totalAmount: string;
   paidAt: Date | null;
   username: string | null;
-  tradeNo: string | null;
 }
 
 /**
@@ -604,6 +603,7 @@ export async function getOrderReceiptByNo(
     const order = await db.query.orders.findFirst({
       where: and(
         eq(orders.orderNo, normalizedOrderNo),
+        eq(orders.userId, user.id),
         inArray(orders.status, ["paid", "completed"])
       ),
       columns: {
@@ -612,7 +612,6 @@ export async function getOrderReceiptByNo(
         totalAmount: true,
         paidAt: true,
         username: true,
-        tradeNo: true,
       },
     });
 
@@ -622,7 +621,6 @@ export async function getOrderReceiptByNo(
     }
 
     const username = order.username?.trim() ? order.username.trim() : null;
-    const tradeNo = order.tradeNo?.trim() ? order.tradeNo.trim() : null;
 
     return {
       success: true,
@@ -633,7 +631,6 @@ export async function getOrderReceiptByNo(
         totalAmount: order.totalAmount,
         paidAt: order.paidAt,
         username,
-        tradeNo,
       },
     };
   } catch (error) {

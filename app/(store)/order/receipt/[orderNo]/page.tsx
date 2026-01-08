@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderReceiptView } from "@/components/store/order-receipt-view";
 import { getOrderReceiptByNo } from "@/lib/actions/orders";
+import { getSystemSettings } from "@/lib/actions/system-settings";
 
 interface OrderReceiptPageProps {
   // Next 在不同渲染路径下可能将 params 包装为 Promise；这里统一 await，避免读取到 undefined。
@@ -13,7 +14,10 @@ interface OrderReceiptPageProps {
 
 export default async function OrderReceiptPage({ params }: OrderReceiptPageProps) {
   const { orderNo } = await params;
-  const result = await getOrderReceiptByNo(orderNo);
+  const [result, settings] = await Promise.all([
+    getOrderReceiptByNo(orderNo),
+    getSystemSettings(),
+  ]);
 
   if (!result.success || !result.data) {
     return (
@@ -41,5 +45,5 @@ export default async function OrderReceiptPage({ params }: OrderReceiptPageProps
     );
   }
 
-  return <OrderReceiptView receipt={result.data} />;
+  return <OrderReceiptView receipt={result.data} merchantName={settings.siteName} />;
 }
