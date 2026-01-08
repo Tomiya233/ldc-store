@@ -29,6 +29,7 @@ import {
   RefreshCw,
   RotateCcw,
   Ban,
+  ReceiptText,
 } from "lucide-react";
 import Link from "next/link";
 import { formatShortTime } from "@/lib/time";
@@ -277,6 +278,20 @@ export default function MyOrdersPage() {
                         </div>
                       )}
                     </div>
+
+                    {(order.status === "paid" || order.status === "completed") && (
+                      <div className="mt-2 flex justify-end">
+                        <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+                          <Link
+                            href={`/order/receipt/${order.orderNo}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ReceiptText className="h-3 w-3 mr-1" />
+                            支付成功凭证
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Cards */}
                     {hasCards && (

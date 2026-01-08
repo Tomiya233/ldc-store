@@ -9,10 +9,11 @@ import { handlePaymentSuccess } from "@/lib/actions/orders";
 import { db, orders } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { parseWalletAmount } from "@/lib/money";
 
 function toCents(value: string): number | null {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return null;
+  const amount = parseWalletAmount(value);
+  if (amount === null) return null;
   return Math.round(amount * 100);
 }
 

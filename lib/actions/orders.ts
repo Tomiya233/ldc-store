@@ -563,6 +563,82 @@ export async function getOrderByNo(orderNo: string) {
   }
 }
 
+export interface OrderReceiptData {
+  orderNo: string;
+  productName: string;
+  totalAmount: string;
+  paidAt: Date | null;
+  username: string | null;
+}
+
+/**
+ * 获取订单“支付成功凭证”数据（用于分享/客服核验）
+ *
+ * 为什么这样做：
+ * - 用户想分享给客服/对外时，只需要最小字段集合即可，避免误分享卡密等敏感信息
+ * - 仅允许已支付/已完成订单生成凭证，减少“未支付却展示成功”的误导
+ * - 分享链接会包含 orderNo，因此强制登录后才允许查看，降低被滥用的风险
+ */
+export async function getOrderReceiptByNo(
+  orderNo: string
+): Promise<{ success: boolean; message?: string; data?: OrderReceiptData }> {
+  const requestId = await getRequestIdFromHeaders();
+  const log = logger.child({ requestId, action: "getOrderReceiptByNo", orderNo });
+
+  try {
+    const session = await auth();
+    const user = session?.user as { id?: string; provider?: string } | undefined;
+
+    if (!user?.id || user.provider !== "linux-do") {
+      log.warn("未登录用户尝试获取支付成功凭证");
+      return { success: false, message: "请先登录" };
+    }
+
+    const normalizedOrderNo = orderNo?.trim();
+    if (!normalizedOrderNo) {
+      return { success: false, message: "订单号无效" };
+    }
+
+    // 为什么这样做：将“订单不存在/未支付/无权访问”等情况统一为同一类失败结果，避免泄露订单存在性细节。
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.orderNo, normalizedOrderNo),
+        eq(orders.userId, user.id),
+        inArray(orders.status, ["paid", "completed"])
+      ),
+      columns: {
+        orderNo: true,
+        productName: true,
+        totalAmount: true,
+        paidAt: true,
+        username: true,
+      },
+    });
+
+    if (!order) {
+      log.warn({ userId: user.id }, "订单不存在或未完成支付，无法生成支付成功凭证");
+      return { success: false, message: "订单不存在或未完成支付" };
+    }
+
+    const username = order.username?.trim() ? order.username.trim() : null;
+
+    return {
+      success: true,
+      message: "获取成功",
+      data: {
+        orderNo: order.orderNo,
+        productName: order.productName,
+        totalAmount: order.totalAmount,
+        paidAt: order.paidAt,
+        username,
+      },
+    };
+  } catch (error) {
+    log.error({ err: error }, "获取支付成功凭证失败");
+    return { success: false, message: "获取凭证失败，请稍后重试" };
+  }
+}
+
 /**
  * 用户申请退款
  * 仅已完成的订单可以申请退款
