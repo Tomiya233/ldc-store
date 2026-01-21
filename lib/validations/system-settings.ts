@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { telegramSettingsSchema } from "./telegram-settings";
 
 export const SITE_ICON_OPTIONS = [
   "Store",
@@ -14,7 +15,8 @@ export const SITE_ICON_OPTIONS = [
 
 export type SiteIconOption = (typeof SITE_ICON_OPTIONS)[number];
 
-export const systemSettingsSchema = z.object({
+// 基础系统配置
+const baseSystemSettingsSchema = z.object({
   siteName: z
     .string()
     .trim()
@@ -32,6 +34,9 @@ export const systemSettingsSchema = z.object({
     .min(1, "至少 1 分钟")
     .max(1440, "最大 1440 分钟"),
 });
+
+// 合并 Telegram 配置
+export const systemSettingsSchema = baseSystemSettingsSchema.merge(telegramSettingsSchema);
 
 export type SystemSettingsInput = z.input<typeof systemSettingsSchema>;
 export type SystemSettings = z.output<typeof systemSettingsSchema>;

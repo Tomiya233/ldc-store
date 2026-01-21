@@ -2,8 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { revalidateAllStoreCache } from "@/lib/cache";
-import { db, restockRequests } from "@/lib/db";
-import { desc, inArray, lte, sql } from "drizzle-orm";
+import { db, restockRequests, products, cards } from "@/lib/db";
+import { desc, inArray, lte, sql, eq, and } from "drizzle-orm";
+import { getTelegramConfig } from "@/lib/actions/system-settings";
+import { sendRestockNotification } from "@/lib/notifications/telegram";
 
 export interface RestockRequester {
   userId: string;
@@ -136,13 +138,26 @@ export async function requestRestock(productId: string): Promise<RequestRestockR
   const userImage = user.image ?? null;
 
   try {
-    // 用 ON CONFLICT 做幂等：同一用户重复点击只会返回同一个记录，不会导致计数被刷
-    await db.execute(sql`
+    // 用 ON CONFLICT 做幂等，并通过 xmax 判断是否为首次插入
+    // xmax = 0 表示新插入的行，xmax > 0 表示更新的行
+    const result = await db.execute<{ id: string; xmax: string }>(sql`
       INSERT INTO restock_requests (product_id, user_id, username, user_image)
       VALUES (${safeProductId}, ${user.id}, ${username}, ${userImage})
       ON CONFLICT (product_id, user_id) DO UPDATE
       SET user_image = EXCLUDED.user_image
+      RETURNING id, xmax::text
     `);
+
+    // Neon/Drizzle 返回的是 RowList，可以直接当数组使用
+    const rows = Array.isArray(result) ? result : (result as unknown as { id: string; xmax: string }[]);
+    const isFirstInsert = rows[0]?.xmax === "0";
+
+    // 仅首次插入时触发 Telegram 通知（fire-and-forget，不阻塞响应）
+    if (isFirstInsert) {
+      triggerTelegramNotification(safeProductId, username).catch(() => {
+        // 静默忽略通知失败，不影响主流程
+      });
+    }
 
     // 刷新商店前台缓存：让其他用户尽快看到计数变化（同时仍保持 ISR 性能）
     await revalidateAllStoreCache();
@@ -159,5 +174,64 @@ export async function requestRestock(productId: string): Promise<RequestRestockR
       success: false,
       message: error instanceof Error ? error.message : "催补货失败，请稍后重试",
     };
+  }
+}
+
+/**
+ * 触发 Telegram 催补货通知（异步执行，不阻塞主流程）
+ */
+async function triggerTelegramNotification(
+  productId: string,
+  username: string
+): Promise<void> {
+  try {
+    // 获取 Telegram 配置
+    const telegramConfig = await getTelegramConfig();
+    if (!telegramConfig.enabled) {
+      return;
+    }
+
+    // 查询商品信息和库存
+    const [productInfo] = await db
+      .select({
+        name: products.name,
+      })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    if (!productInfo) {
+      console.warn(`[triggerTelegramNotification] 商品不存在: ${productId}`);
+      return;
+    }
+
+    // 查询可用库存数量
+    const [stockInfo] = await db
+      .select({
+        count: sql<number>`count(*)::int`,
+      })
+      .from(cards)
+      .where(and(eq(cards.productId, productId), eq(cards.status, "available")));
+
+    const availableStock = stockInfo?.count ?? 0;
+
+    // 发送通知
+    await sendRestockNotification(
+      {
+        enabled: telegramConfig.enabled,
+        botToken: telegramConfig.botToken,
+        chatId: telegramConfig.chatId,
+      },
+      {
+        productId,
+        productName: productInfo.name,
+        availableStock,
+        username,
+        timestamp: new Date(),
+      }
+    );
+  } catch (error) {
+    // 通知失败仅记录日志，不影响主流程
+    console.error("[triggerTelegramNotification] 发送通知失败:", error);
   }
 }

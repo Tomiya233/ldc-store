@@ -12,6 +12,9 @@ const SYSTEM_SETTING_KEYS = {
   siteDescription: "site.description",
   siteIcon: "site.icon",
   orderExpireMinutes: "order.expire_minutes",
+  telegramEnabled: "telegram.enabled",
+  telegramBotToken: "telegram.bot_token",
+  telegramChatId: "telegram.chat_id",
 } as const;
 
 export async function getSystemSettings(): Promise<SystemSettings> {
@@ -41,6 +44,10 @@ export async function getSystemSettings(): Promise<SystemSettings> {
       envSiteDescription,
     siteIcon: map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store",
     orderExpireMinutes: expireMinutes,
+    // Telegram 配置
+    telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
+    telegramBotToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
+    telegramChatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
   };
 
   // 为什么这样做：DB 配置是运行时数据，可能被写入非法值；这里用 safeParse 兜底，避免因“单个脏字段”导致整站 500。
@@ -55,6 +62,9 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     siteDescription: envSiteDescription,
     siteIcon: "Store",
     orderExpireMinutes: getOrderExpireMinutes(),
+    telegramEnabled: false,
+    telegramBotToken: "",
+    telegramChatId: "",
   };
 }
 
@@ -77,11 +87,18 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
   }
 
   const now = new Date();
-  const { siteName, siteDescription, siteIcon, orderExpireMinutes } =
-    validationResult.data;
+  const {
+    siteName,
+    siteDescription,
+    siteIcon,
+    orderExpireMinutes,
+    telegramEnabled,
+    telegramBotToken,
+    telegramChatId,
+  } = validationResult.data;
 
   try {
-    // 为什么这样做：系统配置需要“可覆盖 + 可回滚”；用 key-value 做幂等 upsert，避免多次保存产生重复记录。
+    // 为什么这样做：系统配置需要"可覆盖 + 可回滚"；用 key-value 做幂等 upsert，避免多次保存产生重复记录。
     await db
       .insert(settings)
       .values([
@@ -109,6 +126,24 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
           description: "订单过期时间（分钟）",
           updatedAt: now,
         },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramEnabled,
+          value: String(telegramEnabled),
+          description: "Telegram 通知开关",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramBotToken,
+          value: telegramBotToken,
+          description: "Telegram Bot Token",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramChatId,
+          value: telegramChatId,
+          description: "Telegram Chat ID",
+          updatedAt: now,
+        },
       ])
       .onConflictDoUpdate({
         target: settings.key,
@@ -126,5 +161,39 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
   } catch (error) {
     console.error("更新系统配置失败:", error);
     return { success: false, message: "更新失败，请稍后重试" };
+  }
+}
+
+/**
+ * 获取 Telegram 配置（供通知模块内部调用）
+ * - 不需要管理员权限，因为只在服务端内部使用
+ */
+export async function getTelegramConfig(): Promise<{
+  enabled: boolean;
+  botToken: string;
+  chatId: string;
+}> {
+  const keys = [
+    SYSTEM_SETTING_KEYS.telegramEnabled,
+    SYSTEM_SETTING_KEYS.telegramBotToken,
+    SYSTEM_SETTING_KEYS.telegramChatId,
+  ];
+
+  try {
+    const rows = await db
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(inArray(settings.key, keys));
+
+    const map = new Map<string, string | null>(rows.map((row) => [row.key, row.value]));
+
+    return {
+      enabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
+      botToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
+      chatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
+    };
+  } catch (error) {
+    console.error("[getTelegramConfig] 获取 Telegram 配置失败:", error);
+    return { enabled: false, botToken: "", chatId: "" };
   }
 }
