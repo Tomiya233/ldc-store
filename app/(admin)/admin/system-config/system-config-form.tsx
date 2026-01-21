@@ -349,6 +349,7 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                                 size="sm"
                                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                                 onClick={() => setShowBotToken(!showBotToken)}
+                                aria-label={showBotToken ? "隐藏 Token" : "显示 Token"}
                               >
                                 {showBotToken ? (
                                   <EyeOff className="h-4 w-4 text-muted-foreground" />

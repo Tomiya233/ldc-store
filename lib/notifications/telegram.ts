@@ -85,11 +85,10 @@ async function sendTelegramMessage(
   parseMode: "HTML" | "Markdown" = "HTML"
 ): Promise<TelegramSendResult> {
   const url = `${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,8 +99,6 @@ async function sendTelegramMessage(
       }),
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     const data = await response.json();
 
@@ -120,6 +117,9 @@ async function sendTelegramMessage(
       `[Telegram] 请求异常: ${errorMessage} (token: ${maskBotToken(botToken)}, chatId: ${chatId})`
     );
     return { success: false, message: errorMessage };
+  } finally {
+    // 确保任何路径都清理定时器，避免资源泄漏
+    clearTimeout(timeoutId);
   }
 }
 

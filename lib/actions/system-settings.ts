@@ -44,10 +44,11 @@ export async function getSystemSettings(): Promise<SystemSettings> {
       envSiteDescription,
     siteIcon: map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store",
     orderExpireMinutes: expireMinutes,
-    // Telegram 配置
+    // Telegram 配置 - 敏感字段脱敏，仅返回启用状态
+    // 完整配置需通过 getSystemSettingsForAdmin() 获取
     telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
-    telegramBotToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
-    telegramChatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
+    telegramBotToken: "", // 脱敏：不在公共函数中返回
+    telegramChatId: "",   // 脱敏：不在公共函数中返回
   };
 
   // 为什么这样做：DB 配置是运行时数据，可能被写入非法值；这里用 safeParse 兜底，避免因“单个脏字段”导致整站 500。
@@ -196,4 +197,52 @@ export async function getTelegramConfig(): Promise<{
     console.error("[getTelegramConfig] 获取 Telegram 配置失败:", error);
     return { enabled: false, botToken: "", chatId: "" };
   }
+}
+
+/**
+ * 获取完整系统配置（仅限管理员）
+ * - 包含敏感字段（Telegram Bot Token 等）
+ * - 用于后台配置页面
+ */
+export async function getSystemSettingsForAdmin(): Promise<SystemSettings> {
+  // 此函数仅在 admin 页面的 server component 中调用，
+  // 页面本身已有 middleware 保护，这里再做一次防御性检查
+  try {
+    await requireAdmin();
+  } catch {
+    // 未授权时返回脱敏配置
+    return getSystemSettings();
+  }
+
+  const envSiteName = process.env.NEXT_PUBLIC_SITE_NAME || "LDC Store";
+  const envSiteDescription =
+    process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
+    "基于 Linux DO Credit 的虚拟商品自动发卡平台";
+
+  const keys = Object.values(SYSTEM_SETTING_KEYS);
+  const rows = await db
+    .select({ key: settings.key, value: settings.value })
+    .from(settings)
+    .where(inArray(settings.key, keys));
+
+  const map = new Map<string, string | null>(rows.map((row) => [row.key, row.value]));
+
+  const rawExpireMinutes = map.get(SYSTEM_SETTING_KEYS.orderExpireMinutes);
+  const parsedExpireMinutes = Number.parseInt(String(rawExpireMinutes ?? ""), 10);
+  const expireMinutes = Number.isFinite(parsedExpireMinutes)
+    ? parsedExpireMinutes
+    : getOrderExpireMinutes();
+
+  return {
+    siteName: (map.get(SYSTEM_SETTING_KEYS.siteName) ?? envSiteName) || envSiteName,
+    siteDescription:
+      (map.get(SYSTEM_SETTING_KEYS.siteDescription) ?? envSiteDescription) ||
+      envSiteDescription,
+    siteIcon: (map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store") as SystemSettings["siteIcon"],
+    orderExpireMinutes: expireMinutes,
+    // 管理员可获取完整 Telegram 配置
+    telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
+    telegramBotToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
+    telegramChatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
+  };
 }

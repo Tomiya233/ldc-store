@@ -169,10 +169,11 @@ export async function requestRestock(productId: string): Promise<RequestRestockR
       summary: summaryMap[safeProductId],
     };
   } catch (error) {
+    // 记录详细错误日志，但对外返回统一文案，避免泄露内部细节
     console.error("[requestRestock] 记录催补货失败:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : "催补货失败，请稍后重试",
+      message: "催补货失败，请稍后重试",
     };
   }
 }
