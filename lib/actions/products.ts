@@ -63,9 +63,6 @@ export async function getActiveProducts(options?: {
   offset?: number;
   search?: string;
 }) {
-  // 懒加载释放过期订单，确保库存准确
-  await lazyReleaseExpiredOrders();
-  
   const { categoryId, featured, limit = 20, offset = 0, search } = options || {};
 
   const conditions = [eq(products.isActive, true)];
@@ -87,71 +84,72 @@ export async function getActiveProducts(options?: {
     );
   }
 
-  const productList = await db.query.products.findMany({
-    where: and(...conditions),
-    // 为什么这样做：首页/分类页只需要展示用字段；避免把 content/images 等大字段从 DB 拉出来，降低首屏与预取成本。
-    columns: {
-      id: true,
-      categoryId: true,
-      name: true,
-      slug: true,
-      description: true,
-      price: true,
-      originalPrice: true,
-      coverImage: true,
-      isFeatured: true,
-      salesCount: true,
-      sortOrder: true,
-      createdAt: true,
-    },
-    with: {
-      category: {
-        columns: {
-          id: true,
-          name: true,
-          slug: true,
+  // 优化：并行执行过期订单释放和商品查询
+  // lazyReleaseExpiredOrders 只影响 locked 状态的卡密，不影响商品列表本身
+  const [, productList] = await Promise.all([
+    lazyReleaseExpiredOrders(),
+    db.query.products.findMany({
+      where: and(...conditions),
+      // 为什么这样做：首页/分类页只需要展示用字段；避免把 content/images 等大字段从 DB 拉出来，降低首屏与预取成本。
+      columns: {
+        id: true,
+        categoryId: true,
+        name: true,
+        slug: true,
+        description: true,
+        price: true,
+        originalPrice: true,
+        coverImage: true,
+        isFeatured: true,
+        salesCount: true,
+        sortOrder: true,
+        createdAt: true,
+      },
+      with: {
+        category: {
+          columns: {
+            id: true,
+            name: true,
+            slug: true,
+          },
         },
       },
-    },
-    orderBy: [desc(products.isFeatured), asc(products.sortOrder), desc(products.createdAt)],
-    limit,
-    offset,
-  });
+      orderBy: [desc(products.isFeatured), asc(products.sortOrder), desc(products.createdAt)],
+      limit,
+      offset,
+    }),
+  ]);
 
   // 如果没有商品，直接返回空数组
   if (productList.length === 0) {
     return [];
   }
 
-  // 获取每个商品的库存数量
+  // 优化：并行获取库存数量和催补货信息
   const productIds = productList.map((p) => p.id);
-  const stockCounts = await db
-    .select({
-      productId: cards.productId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(cards)
-    .where(
-      and(
-        inArray(cards.productId, productIds),
-        eq(cards.status, "available")
+  const [stockCounts, restockSummary] = await Promise.all([
+    db
+      .select({
+        productId: cards.productId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(cards)
+      .where(
+        and(
+          inArray(cards.productId, productIds),
+          eq(cards.status, "available")
+        )
       )
-    )
-    .groupBy(cards.productId);
+      .groupBy(cards.productId),
+    // 为什么这样做：催补货入口只在"已售罄"时展示；但为了并行化，这里先查询所有商品的催补货信息
+    // 实际开销很小，因为大部分商品没有催补货记录
+    getRestockSummaryForProducts({
+      productIds,
+      maxRequesters: 5,
+    }),
+  ]);
 
   const stockMap = new Map(stockCounts.map((s) => [s.productId, s.count]));
-
-  // 为什么这样做：催补货入口只在“已售罄”时展示；对有库存商品统计催补货属于无意义开销，会放大首页/分类页渲染与 Link 预取压力。
-  const outOfStockProductIds = productIds.filter(
-    (productId) => (stockMap.get(productId) ?? 0) === 0
-  );
-  const restockSummary: Record<string, RestockSummary> =
-    outOfStockProductIds.length > 0
-      ? await getRestockSummaryForProducts({
-          productIds: outOfStockProductIds,
-          maxRequesters: 5,
-        })
-      : {};
 
   return productList.map((product) => ({
     ...product,
@@ -165,57 +163,52 @@ export async function getActiveProducts(options?: {
  * 获取商品详情
  */
 export async function getProductBySlug(slug: string) {
-  // 懒加载释放过期订单，确保库存准确
-  await lazyReleaseExpiredOrders();
-  
-  const product = await db.query.products.findFirst({
-    where: and(eq(products.slug, slug), eq(products.isActive, true)),
-    // 为什么这样做：详情页展示字段明确，精选 columns 可以减少 DB 传输与序列化成本（尤其是 content/images 等可变大字段）。
-    columns: {
-      id: true,
-      categoryId: true,
-      name: true,
-      slug: true,
-      description: true,
-      content: true,
-      price: true,
-      originalPrice: true,
-      coverImage: true,
-      images: true,
-      isFeatured: true,
-      minQuantity: true,
-      maxQuantity: true,
-      salesCount: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-    with: {
-      category: true,
-    },
-  });
+  const [, product] = await Promise.all([
+    lazyReleaseExpiredOrders(),
+    db.query.products.findFirst({
+      where: and(eq(products.slug, slug), eq(products.isActive, true)),
+      columns: {
+        id: true,
+        categoryId: true,
+        name: true,
+        slug: true,
+        description: true,
+        content: true,
+        price: true,
+        originalPrice: true,
+        coverImage: true,
+        images: true,
+        isFeatured: true,
+        minQuantity: true,
+        maxQuantity: true,
+        salesCount: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      with: {
+        category: true,
+      },
+    }),
+  ]);
 
   if (!product) {
     return null;
   }
 
-  // 获取库存数量
-  const [stockCount] = await db
-    .select({
-      count: sql<number>`count(*)::int`,
-    })
-    .from(cards)
-    .where(and(eq(cards.productId, product.id), eq(cards.status, "available")));
+  const [[stockCount], restockSummary] = await Promise.all([
+    db
+      .select({
+        count: sql<number>`count(*)::int`,
+      })
+      .from(cards)
+      .where(and(eq(cards.productId, product.id), eq(cards.status, "available"))),
+    getRestockSummaryForProducts({
+      productIds: [product.id],
+      maxRequesters: 8,
+    }),
+  ]);
 
   const stock = stockCount?.count || 0;
-
-  // 为什么这样做：详情页只有在售罄时才展示“催补货”，因此对有库存商品不必额外查询统计信息。
-  const restockSummary: Record<string, RestockSummary> =
-    stock === 0
-      ? await getRestockSummaryForProducts({
-          productIds: [product.id],
-          maxRequesters: 8,
-        })
-      : {};
 
   return {
     ...product,
@@ -474,13 +467,9 @@ export async function searchProducts(
     offset?: number;
   }
 ) {
-  // 懒加载释放过期订单，确保库存准确
-  await lazyReleaseExpiredOrders();
-
   const query = keyword.trim();
   const { categoryId, sort = "relevance", limit = 12, offset = 0 } = options || {};
 
-  // 关键：短关键词会导致命中面过大，容易拖慢数据库；这里做兜底保护
   if (query.length < 2) {
     return { items: [], total: 0 };
   }
@@ -499,16 +488,18 @@ export async function searchProducts(
 
   const whereClause = and(...conditions);
 
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(products)
-    .where(whereClause);
+  const [, [{ count }]] = await Promise.all([
+    lazyReleaseExpiredOrders(),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(products)
+      .where(whereClause),
+  ]);
 
   if (!count) {
     return { items: [], total: 0 };
   }
 
-  // 相关度排序（简单版）：命中 name > description > content
   const relevanceScore = sql<number>`
     (CASE WHEN ${products.name} ILIKE ${pattern} THEN 3 ELSE 0 END) +
     (CASE WHEN ${products.description} ILIKE ${pattern} THEN 2 ELSE 0 END) +
@@ -552,21 +543,22 @@ export async function searchProducts(
   }
 
   const productIds = productList.map((p) => p.id);
-  const stockCounts = await db
-    .select({
-      productId: cards.productId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(cards)
-    .where(and(inArray(cards.productId, productIds), eq(cards.status, "available")))
-    .groupBy(cards.productId);
+  const [stockCounts, restockSummary] = await Promise.all([
+    db
+      .select({
+        productId: cards.productId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(cards)
+      .where(and(inArray(cards.productId, productIds), eq(cards.status, "available")))
+      .groupBy(cards.productId),
+    getRestockSummaryForProducts({
+      productIds,
+      maxRequesters: 5,
+    }),
+  ]);
 
   const stockMap = new Map(stockCounts.map((s) => [s.productId, s.count]));
-
-  const restockSummary = await getRestockSummaryForProducts({
-    productIds,
-    maxRequesters: 5,
-  });
 
   return {
     items: productList.map((product) => ({
