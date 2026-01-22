@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,8 +20,12 @@ import {
   CreditCard,
   Gem,
   RefreshCcw,
+  Send,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
+import { SiTelegram } from "@icons-pack/react-simple-icons";
 
 import { updateSystemSettings } from "@/lib/actions/system-settings";
 import {
@@ -36,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -71,6 +76,8 @@ interface SystemConfigFormProps {
 
 export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [isTesting, setIsTesting] = useState(false);
+  const [showBotToken, setShowBotToken] = useState(false);
   const router = useRouter();
 
   const form = useForm<SystemSettingsInput>({
@@ -82,6 +89,7 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   const watchedName = useWatch({ control: form.control, name: "siteName" });
   const watchedDescription = useWatch({ control: form.control, name: "siteDescription" });
   const watchedIcon = useWatch({ control: form.control, name: "siteIcon" });
+  const watchedTelegramEnabled = useWatch({ control: form.control, name: "telegramEnabled" });
 
   const PreviewIcon = useMemo(() => {
     // 为什么这样做：即便 DB 被写入非法 icon，也不要让页面崩；这里做一次兜底，确保始终有可渲染的 icon。
@@ -102,9 +110,39 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   };
 
   const handleReset = () => {
-    // 为什么这样做：系统配置属于“全局状态”，误操作成本高；提供一键回滚到当前值，降低保存前的焦虑。
+    // 为什么这样做：系统配置属于"全局状态"，误操作成本高；提供一键回滚到当前值，降低保存前的焦虑。
     form.reset(initialValues);
     toast.message("已恢复为当前保存的配置");
+  };
+
+  const handleTestTelegram = async () => {
+    const botToken = form.getValues("telegramBotToken");
+    const chatId = form.getValues("telegramChatId");
+
+    if (!botToken || !chatId) {
+      toast.error("请先填写 Bot Token 和 Chat ID");
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      const response = await fetch("/api/admin/telegram/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken, chatId }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success("测试消息发送成功！请检查 Telegram");
+      } else {
+        toast.error(`发送失败: ${result.message}`);
+      }
+    } catch {
+      toast.error("请求失败，请稍后重试");
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -254,6 +292,123 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <SiTelegram className="h-5 w-5" />
+                  Telegram 通知
+                </CardTitle>
+                <CardDescription>
+                  配置后，用户点击"催补货"时会向 Telegram 发送通知
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="telegramEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>启用 Telegram 通知</FormLabel>
+                        <FormDescription>
+                          开启后，催补货请求会推送到 Telegram
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {watchedTelegramEnabled && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="telegramBotToken"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bot Token *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showBotToken ? "text" : "password"}
+                                placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                                {...field}
+                                className="pr-10"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                onClick={() => setShowBotToken(!showBotToken)}
+                                aria-label={showBotToken ? "隐藏 Token" : "显示 Token"}
+                              >
+                                {showBotToken ? (
+                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            通过 @BotFather 创建机器人获取
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="telegramChatId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Chat ID *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="-1001234567890 或 @channel_name"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            群组/频道 ID，可通过 @userinfobot 获取
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestTelegram}
+                      disabled={isTesting || isPending}
+                      className="gap-2"
+                    >
+                      {isTesting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          发送中...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          测试发送
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

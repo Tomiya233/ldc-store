@@ -11,6 +11,7 @@ export interface AdminCustomersFilters {
 export interface AdminCustomerListItem {
   userId: string;
   username: string | null;
+  userImage: string | null;
   orderCount: number;
   totalSpent: string;
   firstPaidAt: string | null;
@@ -65,6 +66,7 @@ export async function getAdminCustomersPage(input: {
         SELECT
           user_id,
           (ARRAY_AGG(username ORDER BY created_at DESC))[1] AS username,
+          (ARRAY_AGG(user_image ORDER BY created_at DESC))[1] AS user_image,
           COUNT(*)::int AS order_count,
           COALESCE(SUM(total_amount::numeric), 0)::text AS total_spent,
           MIN(paid_at) AS first_paid_at,
@@ -73,7 +75,7 @@ export async function getAdminCustomersPage(input: {
         WHERE status = 'completed' AND user_id IS NOT NULL
         GROUP BY user_id
       )
-      SELECT user_id, username, order_count, total_spent, first_paid_at, last_paid_at
+      SELECT user_id, username, user_image, order_count, total_spent, first_paid_at, last_paid_at
       FROM agg
       ${whereSql}
       ORDER BY total_spent::numeric DESC, order_count DESC, user_id ASC
@@ -98,6 +100,7 @@ export async function getAdminCustomersPage(input: {
     (itemsRows as unknown as Array<{
       user_id: string;
       username: string | null;
+      user_image: string | null;
       order_count: number;
       total_spent: string;
       first_paid_at: Date | string | null;
@@ -115,6 +118,7 @@ export async function getAdminCustomersPage(input: {
     items: typedItems.map((row) => ({
       userId: row.user_id,
       username: row.username ?? null,
+      userImage: row.user_image ?? null,
       orderCount: Number.isFinite(row.order_count) ? row.order_count : 0,
       totalSpent: row.total_spent ?? "0",
       firstPaidAt: toIsoString(row.first_paid_at),

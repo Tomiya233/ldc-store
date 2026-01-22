@@ -29,6 +29,13 @@
       "when": 1767805196667,
       "tag": "0003_add_login_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768976038892,
+      "tag": "0004_add_user_image",
+      "breakpoints": true
     }
   ]
 }

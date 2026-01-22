@@ -4,6 +4,7 @@ import { Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 import { getCustomersSpendLeaderboard } from "@/lib/actions/customers";
 
@@ -17,6 +18,25 @@ function formatAmount(value: string): string {
   const num = Number.parseFloat(value || "0");
   if (!Number.isFinite(num)) return "0.00";
   return num.toFixed(2);
+}
+
+/**
+ * Get avatar ring/border styles based on rank
+ * - 1st place: Gold
+ * - 2nd place: Silver
+ * - 3rd place: Bronze
+ */
+function getRankAvatarStyles(rank: number): string {
+  switch (rank) {
+    case 1:
+      return "ring-2 ring-yellow-400 shadow-lg shadow-yellow-200/50 dark:shadow-yellow-900/30";
+    case 2:
+      return "ring-2 ring-slate-300 shadow-md shadow-slate-200/50 dark:shadow-slate-700/30";
+    case 3:
+      return "ring-2 ring-orange-400 shadow-sm shadow-orange-200/50 dark:shadow-orange-900/30";
+    default:
+      return "";
+  }
 }
 
 export default async function CustomersLeaderboardPage() {
@@ -57,6 +77,7 @@ export default async function CustomersLeaderboardPage() {
                     const rank = index + 1;
                     const badgeVariant =
                       rank === 1 ? "default" : rank <= 3 ? "secondary" : "outline";
+                    const avatarStyles = getRankAvatarStyles(rank);
 
                     return (
                       <TableRow key={row.userId}>
@@ -65,8 +86,21 @@ export default async function CustomersLeaderboardPage() {
                             <Badge variant={badgeVariant}>#{rank}</Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {row.username ? `@${row.username}` : "-"}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className={`h-8 w-8 ${avatarStyles}`}>
+                              <AvatarImage
+                                src={row.userImage || undefined}
+                                alt={row.username || "用户头像"}
+                              />
+                              <AvatarFallback className="text-xs font-medium">
+                                {row.username?.charAt(0).toUpperCase() || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">
+                              {row.username ? `@${row.username}` : "-"}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {row.orderCount}
@@ -90,4 +124,3 @@ export default async function CustomersLeaderboardPage() {
     </div>
   );
 }
-

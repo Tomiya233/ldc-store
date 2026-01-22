@@ -276,6 +276,12 @@ export async function getCardsByProduct(
     offset?: number;
   }
 ) {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
+
   const { status, limit = 100, offset = 0 } = options || {};
 
   const conditions = [eq(cards.productId, productId)];
@@ -295,6 +301,12 @@ export async function getCardsByProduct(
  * 获取商品库存统计
  */
 export async function getCardStats(productId: string) {
+  try {
+    await requireAdmin();
+  } catch {
+    return { available: 0, locked: 0, sold: 0, total: 0 };
+  }
+
   const stats = await db
     .select({
       status: cards.status,

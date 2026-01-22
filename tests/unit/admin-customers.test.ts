@@ -34,6 +34,7 @@ describe("getAdminCustomersPage", () => {
         {
           user_id: "u1",
           username: "tester",
+          user_image: null,
           order_count: 3,
           total_spent: "30",
           first_paid_at: "2025-01-01T00:00:00.000Z",
@@ -66,6 +67,7 @@ describe("getAdminCustomersPage", () => {
       {
         userId: "u1",
         username: "tester",
+        userImage: null,
         orderCount: 3,
         totalSpent: "30",
         firstPaidAt: "2025-01-01T00:00:00.000Z",

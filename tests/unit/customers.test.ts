@@ -26,6 +26,7 @@ describe("getCustomersSpendLeaderboard", () => {
       {
         user_id: "u1",
         username: "tester",
+        user_image: null,
         order_count: 2,
         total_spent: "10.5",
       },
@@ -40,6 +41,7 @@ describe("getCustomersSpendLeaderboard", () => {
       {
         userId: "u1",
         username: "tester",
+        userImage: null,
         orderCount: 2,
         totalSpent: "10.5",
       },

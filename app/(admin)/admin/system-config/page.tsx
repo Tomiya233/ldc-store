@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { getSystemSettings } from "@/lib/actions/system-settings";
+import { getSystemSettingsForAdmin } from "@/lib/actions/system-settings";
 import { SystemConfigForm } from "./system-config-form";
 
 export default async function SystemConfigPage() {
-  const settings = await getSystemSettings();
+  // 使用管理员专用函数获取完整配置（包含敏感字段）
+  const settings = await getSystemSettingsForAdmin();
 
   return (
     <div className="space-y-6">

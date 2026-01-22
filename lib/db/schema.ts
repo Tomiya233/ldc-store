@@ -130,7 +130,8 @@ export const orders = pgTable("orders", {
   // 用户信息（OSS登录用户）
   userId: text("user_id"), // Linux DO 用户ID
   username: text("username"), // Linux DO 用户名
-  
+  userImage: text("user_image"), // Linux DO 用户头像
+
   // 联系信息（游客下单时使用）
   email: text("email"), // 游客下单时必填
   queryPassword: text("query_password"), // 游客下单时必填（哈希）

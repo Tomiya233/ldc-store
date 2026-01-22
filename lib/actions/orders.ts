@@ -63,7 +63,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
   // 1. 验证登录状态
   const session = await auth();
-  const user = session?.user as { id?: string; username?: string; provider?: string } | undefined;
+  const user = session?.user as { id?: string; username?: string; image?: string; provider?: string } | undefined;
 
   if (!user?.id || user.provider !== "linux-do") {
     log.warn("未登录用户尝试创建订单");
@@ -143,6 +143,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           paymentMethod,
           userId: user.id,
           username: user.username,
+          userImage: user.image || null,
           expiredAt,
         })
         .returning();
