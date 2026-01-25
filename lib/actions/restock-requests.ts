@@ -40,18 +40,6 @@ export async function getRestockSummaryForProducts(input: {
   }
 
   try {
-    const counts = await db
-      .select({
-        productId: restockRequests.productId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(restockRequests)
-      .where(inArray(restockRequests.productId, productIds))
-      .groupBy(restockRequests.productId);
-
-    const countMap = new Map(counts.map((row) => [row.productId, row.count]));
-
-    // 使用 window function 在 DB 侧做“每个商品取最近 N 条”，避免拉全表再在 JS 里切片
     const ranked = db
       .select({
         productId: restockRequests.productId,
@@ -70,17 +58,29 @@ export async function getRestockSummaryForProducts(input: {
       .where(inArray(restockRequests.productId, productIds))
       .as("ranked_restock_requests");
 
-    const requesterRows = await db
-      .select({
-        productId: ranked.productId,
-        userId: ranked.userId,
-        username: ranked.username,
-        userImage: ranked.userImage,
-        createdAt: ranked.createdAt,
-      })
-      .from(ranked)
-      .where(lte(ranked.rn, maxRequesters))
-      .orderBy(ranked.productId, desc(ranked.createdAt));
+    const [counts, requesterRows] = await Promise.all([
+      db
+        .select({
+          productId: restockRequests.productId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(restockRequests)
+        .where(inArray(restockRequests.productId, productIds))
+        .groupBy(restockRequests.productId),
+      db
+        .select({
+          productId: ranked.productId,
+          userId: ranked.userId,
+          username: ranked.username,
+          userImage: ranked.userImage,
+          createdAt: ranked.createdAt,
+        })
+        .from(ranked)
+        .where(lte(ranked.rn, maxRequesters))
+        .orderBy(ranked.productId, desc(ranked.createdAt)),
+    ]);
+
+    const countMap = new Map(counts.map((row) => [row.productId, row.count]));
 
     const requesterMap = new Map<string, RestockRequester[]>();
     for (const row of requesterRows) {
@@ -103,7 +103,6 @@ export async function getRestockSummaryForProducts(input: {
 
     return result;
   } catch (error) {
-    // 兜底：避免因为统计表缺失/权限问题导致前台页面不可用
     console.error("[getRestockSummaryForProducts] 查询催补货统计失败:", error);
     return {};
   }

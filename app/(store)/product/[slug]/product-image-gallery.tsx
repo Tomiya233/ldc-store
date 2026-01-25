@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface ProductImageGalleryProps {
@@ -23,10 +24,13 @@ export function ProductImageGallery({
   return (
     <div className="mb-6">
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl border bg-muted/30">
-        <img
+        <Image
           src={displayUrl}
           alt={productName}
-          className="h-full w-full object-cover"
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover"
+          priority
         />
       </div>
 
@@ -47,11 +51,12 @@ export function ProductImageGallery({
                     : "hover:border-primary/40"
                 )}
               >
-                <img
+                <Image
                   src={url}
                   alt={`${productName} - 图片 ${index + 1}`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
+                  fill
+                  sizes="64px"
+                  className="object-cover"
                 />
               </button>
             );

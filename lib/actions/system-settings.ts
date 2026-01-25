@@ -11,6 +11,7 @@ const SYSTEM_SETTING_KEYS = {
   siteName: "site.name",
   siteDescription: "site.description",
   siteIcon: "site.icon",
+  siteIconUrl: "site.icon_url",
   orderExpireMinutes: "order.expire_minutes",
   telegramEnabled: "telegram.enabled",
   telegramBotToken: "telegram.bot_token",
@@ -43,6 +44,7 @@ export async function getSystemSettings(): Promise<SystemSettings> {
       (map.get(SYSTEM_SETTING_KEYS.siteDescription) ?? envSiteDescription) ||
       envSiteDescription,
     siteIcon: map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store",
+    siteIconUrl: map.get(SYSTEM_SETTING_KEYS.siteIconUrl) ?? "",
     orderExpireMinutes: expireMinutes,
     // Telegram 配置 - 敏感字段脱敏，仅返回启用状态
     // 完整配置需通过 getSystemSettingsForAdmin() 获取
@@ -62,6 +64,7 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     siteName: envSiteName,
     siteDescription: envSiteDescription,
     siteIcon: "Store",
+    siteIconUrl: "",
     orderExpireMinutes: getOrderExpireMinutes(),
     telegramEnabled: false,
     telegramBotToken: "",
@@ -92,6 +95,7 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
     siteName,
     siteDescription,
     siteIcon,
+    siteIconUrl,
     orderExpireMinutes,
     telegramEnabled,
     telegramBotToken,
@@ -119,6 +123,12 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
           key: SYSTEM_SETTING_KEYS.siteIcon,
           value: siteIcon,
           description: "网站图标（Lucide icon name）",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.siteIconUrl,
+          value: siteIconUrl,
+          description: "自定义网站图标 URL",
           updatedAt: now,
         },
         {
@@ -239,6 +249,7 @@ export async function getSystemSettingsForAdmin(): Promise<SystemSettings> {
       (map.get(SYSTEM_SETTING_KEYS.siteDescription) ?? envSiteDescription) ||
       envSiteDescription,
     siteIcon: (map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store") as SystemSettings["siteIcon"],
+    siteIconUrl: map.get(SYSTEM_SETTING_KEYS.siteIconUrl) ?? "",
     orderExpireMinutes: expireMinutes,
     // 管理员可获取完整 Telegram 配置
     telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",

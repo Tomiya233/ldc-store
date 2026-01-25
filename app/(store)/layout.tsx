@@ -25,11 +25,11 @@ export default async function StoreLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { siteName, siteIcon } = await getSystemSettingsCached();
+  const { siteName, siteIcon, siteIconUrl } = await getSystemSettingsCached();
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header siteName={siteName} siteIcon={siteIcon} />
+      <Header siteName={siteName} siteIcon={siteIcon} siteIconUrl={siteIconUrl} />
       <main className="flex-1">{children}</main>
       <Footer siteName={siteName} />
       <Toaster position="top-center" richColors />

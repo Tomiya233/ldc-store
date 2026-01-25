@@ -36,6 +36,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 interface HeaderProps {
   siteName?: string;
   siteIcon?: string;
+  siteIconUrl?: string;
 }
 
 type StoreIconEasterEggVariant =
@@ -87,7 +88,7 @@ const SITE_ICON_MAP: Record<string, LucideIcon> = {
   Zap,
 };
 
-export function Header({ siteName = "LDC Store", siteIcon }: HeaderProps) {
+export function Header({ siteName = "LDC Store", siteIcon, siteIconUrl }: HeaderProps) {
   const { data: session, status } = useSession();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [storeIconEasterEggKey, setStoreIconEasterEggKey] = useState(0);
@@ -96,6 +97,10 @@ export function Header({ siteName = "LDC Store", siteIcon }: HeaderProps) {
   const storeIconResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
+
+  const trimmedIconUrl = siteIconUrl?.trim();
+  const hasCustomIconUrl = Boolean(trimmedIconUrl) && !iconLoadFailed;
 
   // 检查是否是 Linux DO 登录用户
   const user = session?.user as { 
@@ -160,7 +165,7 @@ export function Header({ siteName = "LDC Store", siteIcon }: HeaderProps) {
             key={storeIconEasterEggKey}
             onClick={triggerStoreIconEasterEgg}
             className={[
-              "inline-flex size-8 items-center justify-center rounded-md ring-1 transition-colors",
+              "inline-flex size-8 items-center justify-center rounded-md ring-1 transition-colors overflow-hidden",
               storeIconEasterEggKey > 0 ? "animate-ldc-store-shake" : "",
               STORE_ICON_VARIANT_STYLES[storeIconVariant],
             ]
@@ -168,7 +173,17 @@ export function Header({ siteName = "LDC Store", siteIcon }: HeaderProps) {
               .join(" ")}
             title="点我一下"
           >
-            <SiteIcon className="h-4 w-4" />
+            {hasCustomIconUrl ? (
+              <img
+                src={trimmedIconUrl}
+                alt="网站图标"
+                className="h-full w-full object-contain"
+                referrerPolicy="no-referrer"
+                onError={() => setIconLoadFailed(true)}
+              />
+            ) : (
+              <SiteIcon className="h-4 w-4" />
+            )}
           </span>
           <span className="min-w-0 truncate max-w-[45vw] sm:max-w-none">{siteName}</span>
         </Link>

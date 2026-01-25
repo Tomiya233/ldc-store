@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -89,7 +89,16 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   const watchedName = useWatch({ control: form.control, name: "siteName" });
   const watchedDescription = useWatch({ control: form.control, name: "siteDescription" });
   const watchedIcon = useWatch({ control: form.control, name: "siteIcon" });
+  const watchedIconUrl = useWatch({ control: form.control, name: "siteIconUrl" });
   const watchedTelegramEnabled = useWatch({ control: form.control, name: "telegramEnabled" });
+  const [previewIconFailed, setPreviewIconFailed] = useState(false);
+
+  const trimmedIconUrl = watchedIconUrl?.trim();
+  const hasCustomIconUrl = Boolean(trimmedIconUrl) && !previewIconFailed;
+
+  useEffect(() => {
+    setPreviewIconFailed(false);
+  }, [watchedIconUrl]);
 
   const PreviewIcon = useMemo(() => {
     // 为什么这样做：即便 DB 被写入非法 icon，也不要让页面崩；这里做一次兜底，确保始终有可渲染的 icon。
@@ -198,47 +207,80 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="siteIcon"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>网站图标</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) =>
-                            field.onChange(value as SiteIconOption)
-                          }
-                        >
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="siteIconUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>自定义图标 URL</FormLabel>
                           <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="选择图标" />
-                            </SelectTrigger>
+                            <Input
+                              placeholder="https://example.com/icon.png"
+                              {...field}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {SITE_ICON_OPTIONS.map((value) => {
-                              const Icon = SITE_ICON_MAP[value];
-                              return (
-                                <SelectItem key={value} value={value}>
-                                  <div className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" />
-                                    <span>{value}</span>
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormDescription>
+                            填写后将优先使用自定义图标，留空则使用下方预置图标。外链会被所有访客请求，建议使用站内静态资源（如 /icons/logo.png）。
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="siteIcon"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>预置图标{hasCustomIconUrl && "（已被自定义图标覆盖）"}</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={(value) =>
+                              field.onChange(value as SiteIconOption)
+                            }
+                            disabled={hasCustomIconUrl}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="选择图标" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {SITE_ICON_OPTIONS.map((value) => {
+                                const Icon = SITE_ICON_MAP[value];
+                                return (
+                                  <SelectItem key={value} value={value}>
+                                    <div className="flex items-center gap-2">
+                                      <Icon className="h-4 w-4" />
+                                      <span>{value}</span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <div className="rounded-lg border bg-muted/40 p-4">
                     <p className="text-sm text-muted-foreground">预览</p>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-border/50">
-                        <PreviewIcon className="h-4 w-4" />
+                      <span className="inline-flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-border/50 overflow-hidden">
+                        {hasCustomIconUrl ? (
+                          <img
+                            src={trimmedIconUrl}
+                            alt="自定义图标"
+                            className="h-full w-full object-contain"
+                            referrerPolicy="no-referrer"
+                            onError={() => setPreviewIconFailed(true)}
+                          />
+                        ) : (
+                          <PreviewIcon className="h-4 w-4" />
+                        )}
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
@@ -249,6 +291,13 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                         </p>
                       </div>
                     </div>
+                    {trimmedIconUrl && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {previewIconFailed
+                          ? "⚠️ 图片加载失败，已回退到预置图标"
+                          : "使用自定义图标"}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

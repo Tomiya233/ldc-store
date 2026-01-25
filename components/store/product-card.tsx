@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, Flame, Package, Sparkles, TrendingUp } from "lucide-react";
 import { RestockRequestInline } from "@/components/store/restock-request-inline";
@@ -63,13 +64,12 @@ export function ProductCard({
       {/* Cover：图像层级更“干净”，内容层与图像层用柔和分割，避免信息挤在同一层导致阅读压力 */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40">
         {coverImage ? (
-          <img
+          <Image
             src={coverImage}
             alt={name}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105 motion-safe:group-focus-within:scale-105 motion-reduce:transform-none"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-105 motion-safe:group-focus-within:scale-105 motion-reduce:transform-none"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
