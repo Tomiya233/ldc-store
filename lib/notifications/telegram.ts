@@ -18,6 +18,79 @@ export interface RestockNotificationPayload {
   timestamp: Date;
 }
 
+// ============================================
+// 订单通知相关接口
+// ============================================
+
+/**
+ * 订单通知基础字段
+ */
+export interface OrderNotificationBase {
+  orderNo: string;
+  productName: string;
+  quantity: number;
+  totalAmount: string;
+  paymentMethod: string;
+  username?: string | null;
+}
+
+/**
+ * 新订单通知
+ */
+export interface NewOrderNotificationPayload extends OrderNotificationBase {
+  createdAt: Date;
+  expiredAt: Date;
+}
+
+/**
+ * 支付成功通知
+ */
+export interface PaymentSuccessNotificationPayload extends OrderNotificationBase {
+  tradeNo: string;
+  paidAt: Date;
+}
+
+/**
+ * 订单过期通知
+ */
+export interface OrderExpiredNotificationPayload extends OrderNotificationBase {
+  expiredAt: Date;
+}
+
+/**
+ * 退款申请通知
+ */
+export interface RefundRequestNotificationPayload extends OrderNotificationBase {
+  tradeNo?: string | null;
+  refundReason: string;
+  refundRequestedAt: Date;
+}
+
+/**
+ * 退款成功通知
+ */
+export interface RefundApprovedNotificationPayload extends OrderNotificationBase {
+  tradeNo?: string | null;
+  refundedAt: Date;
+  adminRemark?: string | null;
+}
+
+/**
+ * 退款拒绝通知
+ */
+export interface RefundRejectedNotificationPayload extends OrderNotificationBase {
+  refundReason?: string | null;
+  adminRemark?: string | null;
+}
+
+/**
+ * 订单过期汇总通知（超过上限时使用）
+ */
+export interface OrderExpiredSummaryPayload {
+  totalCount: number;
+  orderNos: string[];
+}
+
 export interface TelegramSendResult {
   success: boolean;
   message: string;
@@ -175,4 +248,234 @@ export async function testTelegramConnection(
 此消息由 LDC Store 发送。`;
 
   return sendTelegramMessage(botToken, chatId, testMessage);
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  ldc: "Linux DO Credit",
+  alipay: "支付宝",
+  wechat: "微信支付",
+  usdt: "USDT",
+};
+
+function getPaymentMethodLabel(method: string): string {
+  return PAYMENT_METHOD_LABELS[method] || method;
+}
+
+function buildNewOrderMessage(p: NewOrderNotificationPayload): string {
+  return `🧾 <b>新订单</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>支付方式:</b> ${getPaymentMethodLabel(p.paymentMethod)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}
+<b>下单时间:</b> ${formatTimestamp(p.createdAt)}
+<b>过期时间:</b> ${formatTimestamp(p.expiredAt)}`;
+}
+
+function buildPaymentSuccessMessage(p: PaymentSuccessNotificationPayload): string {
+  return `✅ <b>支付成功</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>
+<b>流水号:</b> <code>${escapeHtml(p.tradeNo)}</code>
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>支付方式:</b> ${getPaymentMethodLabel(p.paymentMethod)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}
+<b>支付时间:</b> ${formatTimestamp(p.paidAt)}`;
+}
+
+function buildOrderExpiredMessage(p: OrderExpiredNotificationPayload): string {
+  return `⏰ <b>订单过期</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}
+<b>过期时间:</b> ${formatTimestamp(p.expiredAt)}`;
+}
+
+function buildOrderExpiredSummaryMessage(p: OrderExpiredSummaryPayload): string {
+  const orderList = p.orderNos.map((no) => `<code>${escapeHtml(no)}</code>`).join("\n");
+  return `⏰ <b>订单批量过期</b>
+
+共 <b>${p.totalCount}</b> 个订单已过期
+
+<b>订单号列表:</b>
+${orderList}${p.totalCount > p.orderNos.length ? `\n... 及其他 ${p.totalCount - p.orderNos.length} 个订单` : ""}`;
+}
+
+function buildRefundRequestMessage(p: RefundRequestNotificationPayload): string {
+  return `🔄 <b>退款申请</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>${p.tradeNo ? `\n<b>流水号:</b> <code>${escapeHtml(p.tradeNo)}</code>` : ""}
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}
+<b>退款原因:</b> ${escapeHtml(p.refundReason)}
+<b>申请时间:</b> ${formatTimestamp(p.refundRequestedAt)}`;
+}
+
+function buildRefundApprovedMessage(p: RefundApprovedNotificationPayload): string {
+  return `💰 <b>退款成功</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>${p.tradeNo ? `\n<b>流水号:</b> <code>${escapeHtml(p.tradeNo)}</code>` : ""}
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}${p.adminRemark ? `\n<b>备注:</b> ${escapeHtml(p.adminRemark)}` : ""}
+<b>退款时间:</b> ${formatTimestamp(p.refundedAt)}`;
+}
+
+function buildRefundRejectedMessage(p: RefundRejectedNotificationPayload): string {
+  return `❌ <b>退款拒绝</b>
+
+<b>订单号:</b> <code>${escapeHtml(p.orderNo)}</code>
+<b>商品:</b> ${escapeHtml(p.productName)}
+<b>数量:</b> ${p.quantity}
+<b>金额:</b> ¥${escapeHtml(p.totalAmount)}
+<b>用户:</b> ${escapeHtml(p.username || "未知")}${p.refundReason ? `\n<b>退款原因:</b> ${escapeHtml(p.refundReason)}` : ""}${p.adminRemark ? `\n<b>拒绝原因:</b> ${escapeHtml(p.adminRemark)}` : ""}`;
+}
+
+export interface TelegramConfigWithToggles extends TelegramConfig {
+  notifyOrderCreated: boolean;
+  notifyPaymentSuccess: boolean;
+  notifyOrderExpired: boolean;
+  notifyRefundRequested: boolean;
+  notifyRefundApproved: boolean;
+  notifyRefundRejected: boolean;
+}
+
+function checkConfigAndToggle(
+  config: TelegramConfigWithToggles,
+  toggleKey: keyof Omit<TelegramConfigWithToggles, keyof TelegramConfig>,
+  notificationType: string
+): TelegramSendResult | null {
+  if (!config.enabled) {
+    return { success: false, message: "Telegram 通知未启用" };
+  }
+  if (!config.botToken || !config.chatId) {
+    console.warn(`[Telegram] 配置不完整，跳过发送${notificationType}通知`);
+    return { success: false, message: "配置不完整" };
+  }
+  if (!config[toggleKey]) {
+    return { success: false, message: `${notificationType}通知未启用` };
+  }
+  return null;
+}
+
+export async function sendNewOrderNotification(
+  config: TelegramConfigWithToggles,
+  payload: NewOrderNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyOrderCreated", "新订单");
+  if (skipResult) return skipResult;
+
+  const message = buildNewOrderMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 新订单通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
+}
+
+export async function sendPaymentSuccessNotification(
+  config: TelegramConfigWithToggles,
+  payload: PaymentSuccessNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyPaymentSuccess", "支付成功");
+  if (skipResult) return skipResult;
+
+  const message = buildPaymentSuccessMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 支付成功通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
+}
+
+export async function sendOrderExpiredNotification(
+  config: TelegramConfigWithToggles,
+  payload: OrderExpiredNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyOrderExpired", "订单过期");
+  if (skipResult) return skipResult;
+
+  const message = buildOrderExpiredMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 订单过期通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
+}
+
+export async function sendOrderExpiredSummaryNotification(
+  config: TelegramConfigWithToggles,
+  payload: OrderExpiredSummaryPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyOrderExpired", "订单过期");
+  if (skipResult) return skipResult;
+
+  const message = buildOrderExpiredSummaryMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 订单批量过期通知已发送: 共${payload.totalCount}个订单`);
+  }
+  return result;
+}
+
+export async function sendRefundRequestNotification(
+  config: TelegramConfigWithToggles,
+  payload: RefundRequestNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyRefundRequested", "退款申请");
+  if (skipResult) return skipResult;
+
+  const message = buildRefundRequestMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 退款申请通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
+}
+
+export async function sendRefundApprovedNotification(
+  config: TelegramConfigWithToggles,
+  payload: RefundApprovedNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyRefundApproved", "退款成功");
+  if (skipResult) return skipResult;
+
+  const message = buildRefundApprovedMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 退款成功通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
+}
+
+export async function sendRefundRejectedNotification(
+  config: TelegramConfigWithToggles,
+  payload: RefundRejectedNotificationPayload
+): Promise<TelegramSendResult> {
+  const skipResult = checkConfigAndToggle(config, "notifyRefundRejected", "退款拒绝");
+  if (skipResult) return skipResult;
+
+  const message = buildRefundRejectedMessage(payload);
+  const result = await sendTelegramMessage(config.botToken, config.chatId, message);
+
+  if (result.success) {
+    console.log(`[Telegram] 退款拒绝通知已发送: 订单号=${payload.orderNo}`);
+  }
+  return result;
 }
