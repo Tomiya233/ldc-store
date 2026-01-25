@@ -24,6 +24,12 @@ export const telegramSettingsSchema = z.object({
       (val) => !val || /^-?\d+$/.test(val) || /^@\w+$/.test(val),
       "Chat ID 格式不正确（应为数字或 @username）"
     ),
+  telegramNotifyOrderCreated: z.boolean().default(false),
+  telegramNotifyPaymentSuccess: z.boolean().default(false),
+  telegramNotifyOrderExpired: z.boolean().default(false),
+  telegramNotifyRefundRequested: z.boolean().default(false),
+  telegramNotifyRefundApproved: z.boolean().default(false),
+  telegramNotifyRefundRejected: z.boolean().default(false),
 });
 
 export type TelegramSettingsInput = z.input<typeof telegramSettingsSchema>;

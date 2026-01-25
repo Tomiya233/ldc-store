@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
+  Bell,
   Clock,
   Globe,
   Loader2,
@@ -41,6 +42,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -101,7 +103,6 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   }, [watchedIconUrl]);
 
   const PreviewIcon = useMemo(() => {
-    // 为什么这样做：即便 DB 被写入非法 icon，也不要让页面崩；这里做一次兜底，确保始终有可渲染的 icon。
     return SITE_ICON_MAP[watchedIcon as SiteIconOption] ?? Store;
   }, [watchedIcon]);
 
@@ -110,7 +111,6 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
       const result = await updateSystemSettings(values);
       if (result.success) {
         toast.success(result.message);
-        // 为什么这样做：后台页面是 force-dynamic，但仍需要 refresh 才能刷新 server component 的初始值与提示信息。
         router.refresh();
       } else {
         toast.error(result.message);
@@ -119,7 +119,6 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
   };
 
   const handleReset = () => {
-    // 为什么这样做：系统配置属于"全局状态"，误操作成本高；提供一键回滚到当前值，降低保存前的焦虑。
     form.reset(initialValues);
     toast.message("已恢复为当前保存的配置");
   };
@@ -158,343 +157,455 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Globe className="h-5 w-5" />
-                  站点信息
-                </CardTitle>
-                <CardDescription>
-                  这些配置会影响前台 Header/页面标题等展示（保存后立即生效）
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="siteName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>网站名称 *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：LDC Store" {...field} />
-                      </FormControl>
-                      <FormDescription>用于前台标题、Footer 版权等。</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="mb-4 w-full justify-start">
+                <TabsTrigger value="basic" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  基础设置
+                </TabsTrigger>
+                <TabsTrigger value="notification" className="gap-2">
+                  <Bell className="h-4 w-4" />
+                  通知设置
+                </TabsTrigger>
+              </TabsList>
 
-                <FormField
-                  control={form.control}
-                  name="siteDescription"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>网站描述</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="一句话介绍（可选）"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        建议控制在 1-2 句话，过长会影响 SEO 与分享卡片展示。
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-4">
+              <TabsContent value="basic" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Globe className="h-5 w-5" />
+                      站点信息
+                    </CardTitle>
+                    <CardDescription>
+                      这些配置会影响前台 Header/页面标题等展示（保存后立即生效）
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="siteIconUrl"
+                      name="siteName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>自定义图标 URL</FormLabel>
+                          <FormLabel>网站名称 *</FormLabel>
                           <FormControl>
-                            <Input
-                              placeholder="https://example.com/icon.png"
+                            <Input placeholder="例如：LDC Store" {...field} />
+                          </FormControl>
+                          <FormDescription>用于前台标题、Footer 版权等。</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="siteDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>网站描述</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="一句话介绍（可选）"
+                              rows={3}
                               {...field}
                             />
                           </FormControl>
                           <FormDescription>
-                            填写后将优先使用自定义图标，留空则使用下方预置图标。外链会被所有访客请求，建议使用站内静态资源（如 /icons/logo.png）。
+                            建议控制在 1-2 句话，过长会影响 SEO 与分享卡片展示。
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="siteIcon"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>预置图标{hasCustomIconUrl && "（已被自定义图标覆盖）"}</FormLabel>
-                          <Select
-                            value={field.value}
-                            onValueChange={(value) =>
-                              field.onChange(value as SiteIconOption)
-                            }
-                            disabled={hasCustomIconUrl}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="选择图标" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {SITE_ICON_OPTIONS.map((value) => {
-                                const Icon = SITE_ICON_MAP[value];
-                                return (
-                                  <SelectItem key={value} value={value}>
-                                    <div className="flex items-center gap-2">
-                                      <Icon className="h-4 w-4" />
-                                      <span>{value}</span>
-                                    </div>
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="siteIconUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>自定义图标 URL</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="https://example.com/icon.png"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                填写后将优先使用自定义图标，留空则使用下方预置图标。
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                  <div className="rounded-lg border bg-muted/40 p-4">
-                    <p className="text-sm text-muted-foreground">预览</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-border/50 overflow-hidden">
-                        {hasCustomIconUrl ? (
-                          <img
-                            src={trimmedIconUrl}
-                            alt="自定义图标"
-                            className="h-full w-full object-contain"
-                            referrerPolicy="no-referrer"
-                            onError={() => setPreviewIconFailed(true)}
-                          />
-                        ) : (
-                          <PreviewIcon className="h-4 w-4" />
+                        <FormField
+                          control={form.control}
+                          name="siteIcon"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>预置图标{hasCustomIconUrl && "（已被自定义图标覆盖）"}</FormLabel>
+                              <Select
+                                value={field.value}
+                                onValueChange={(value) =>
+                                  field.onChange(value as SiteIconOption)
+                                }
+                                disabled={hasCustomIconUrl}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="选择图标" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {SITE_ICON_OPTIONS.map((value) => {
+                                    const Icon = SITE_ICON_MAP[value];
+                                    return (
+                                      <SelectItem key={value} value={value}>
+                                        <div className="flex items-center gap-2">
+                                          <Icon className="h-4 w-4" />
+                                          <span>{value}</span>
+                                        </div>
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="rounded-lg border bg-muted/40 p-4">
+                        <p className="text-sm text-muted-foreground">预览</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-border/50 overflow-hidden">
+                            {hasCustomIconUrl ? (
+                              <img
+                                src={trimmedIconUrl}
+                                alt="自定义图标"
+                                className="h-full w-full object-contain"
+                                referrerPolicy="no-referrer"
+                                onError={() => setPreviewIconFailed(true)}
+                              />
+                            ) : (
+                              <PreviewIcon className="h-4 w-4" />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {watchedName || "—"}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {watchedDescription || "未填写描述"}
+                            </p>
+                          </div>
+                        </div>
+                        {trimmedIconUrl && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {previewIconFailed
+                              ? "⚠️ 图片加载失败，已回退到预置图标"
+                              : "使用自定义图标"}
+                          </p>
                         )}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {watchedName || "—"}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {watchedDescription || "未填写描述"}
-                        </p>
                       </div>
                     </div>
-                    {trimmedIconUrl && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {previewIconFailed
-                          ? "⚠️ 图片加载失败，已回退到预置图标"
-                          : "使用自定义图标"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Clock className="h-5 w-5" />
-                  订单与超时
-                </CardTitle>
-                <CardDescription>
-                  用于控制“未支付订单”多久后过期并释放库存
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="orderExpireMinutes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>订单过期时间（分钟）*</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={1440}
-                          {...field}
-                          onChange={(e) => {
-                            const next = Number.parseInt(e.target.value, 10);
-                            // 为什么这样做：Input 的值是 string；这里提前转为 number，避免服务端校验失败。
-                            field.onChange(Number.isFinite(next) ? next : 0);
-                          }}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        保存后会影响新创建的订单；已创建订单仍按其自身的过期时间计算。
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <SiTelegram className="h-5 w-5" />
-                  Telegram 通知
-                </CardTitle>
-                <CardDescription>
-                  配置后，用户点击"催补货"时会向 Telegram 发送通知
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="telegramEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                      <div className="space-y-0.5">
-                        <FormLabel>启用 Telegram 通知</FormLabel>
-                        <FormDescription>
-                          开启后，催补货请求会推送到 Telegram
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                {watchedTelegramEnabled && (
-                  <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Clock className="h-5 w-5" />
+                      订单与超时
+                    </CardTitle>
+                    <CardDescription>
+                      用于控制"未支付订单"多久后过期并释放库存
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="telegramBotToken"
+                      name="orderExpireMinutes"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Bot Token *</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                type={showBotToken ? "text" : "password"}
-                                placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                                {...field}
-                                className="pr-10"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                                onClick={() => setShowBotToken(!showBotToken)}
-                                aria-label={showBotToken ? "隐藏 Token" : "显示 Token"}
-                              >
-                                {showBotToken ? (
-                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </Button>
-                            </div>
-                          </FormControl>
-                          <FormDescription>
-                            通过 @BotFather 创建机器人获取
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="telegramChatId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Chat ID *</FormLabel>
+                          <FormLabel>订单过期时间（分钟）*</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="-1001234567890 或 @channel_name"
+                              type="number"
+                              inputMode="numeric"
+                              min={1}
+                              max={1440}
                               {...field}
+                              onChange={(e) => {
+                                const next = Number.parseInt(e.target.value, 10);
+                                field.onChange(Number.isFinite(next) ? next : 0);
+                              }}
                             />
                           </FormControl>
                           <FormDescription>
-                            群组/频道 ID，可通过 @userinfobot 获取
+                            保存后会影响新创建的订单；已创建订单仍按其自身的过期时间计算。
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTestTelegram}
-                      disabled={isTesting || isPending}
-                      className="gap-2"
-                    >
-                      {isTesting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          发送中...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4" />
-                          测试发送
-                        </>
+              <TabsContent value="notification" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <SiTelegram className="h-5 w-5" />
+                      Telegram 通知
+                    </CardTitle>
+                    <CardDescription>
+                      配置 Telegram 机器人，接收订单、支付、退款等实时通知
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="telegramEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>启用 Telegram 通知</FormLabel>
+                            <FormDescription>
+                              开启后可接收各类业务通知
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
                       )}
-                    </Button>
-                  </>
+                    />
+
+                    {watchedTelegramEnabled && (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="telegramBotToken"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bot Token *</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input
+                                      type={showBotToken ? "text" : "password"}
+                                      placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                                      {...field}
+                                      className="pr-10"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                      onClick={() => setShowBotToken(!showBotToken)}
+                                      aria-label={showBotToken ? "隐藏 Token" : "显示 Token"}
+                                    >
+                                      {showBotToken ? (
+                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </FormControl>
+                                <FormDescription>
+                                  通过 @BotFather 创建机器人获取
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="telegramChatId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Chat ID *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="-1001234567890 或 @channel_name"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  群组/频道 ID，可通过 @userinfobot 获取
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTestTelegram}
+                          disabled={isTesting || isPending}
+                          className="gap-2"
+                        >
+                          {isTesting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              发送中...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4" />
+                              测试发送
+                            </>
+                          )}
+                        </Button>
+
+                        <div className="rounded-lg border p-4">
+                          <div className="mb-3">
+                            <p className="text-sm font-medium">通知类型</p>
+                            <p className="text-xs text-muted-foreground">选择需要推送的通知类型，开启后相应事件会发送到 Telegram</p>
+                          </div>
+                          
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyOrderCreated"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">🧾 新订单</FormLabel>
+                                    <FormDescription className="text-xs">用户创建订单时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyPaymentSuccess"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">✅ 支付成功</FormLabel>
+                                    <FormDescription className="text-xs">订单支付完成时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyOrderExpired"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">⏰ 订单过期</FormLabel>
+                                    <FormDescription className="text-xs">订单超时未支付时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyRefundRequested"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">🔄 退款申请</FormLabel>
+                                    <FormDescription className="text-xs">用户申请退款时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyRefundApproved"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">💰 退款成功</FormLabel>
+                                    <FormDescription className="text-xs">退款审核通过时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="telegramNotifyRefundRejected"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm font-normal">❌ 退款拒绝</FormLabel>
+                                    <FormDescription className="text-xs">退款申请被拒绝时</FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {!watchedTelegramEnabled && (
+                  <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="rounded-full bg-muted p-3 mb-3">
+                        <Bell className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        启用 Telegram 通知后，可配置各类业务通知
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="space-y-6">
-            <Card>
+            <Card className="sticky top-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Settings className="h-5 w-5" />
-                  生效说明
+                  操作
                 </CardTitle>
-                <CardDescription>
-                  配置会写入数据库，保存后立即生效
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <span className="mt-0.5 inline-flex size-5 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                      <Sparkles className="h-3.5 w-3.5" />
-                    </span>
-                    <span>站点名称/图标等展示配置：刷新页面即可看到变化。</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-0.5 inline-flex size-5 items-center justify-center rounded-md bg-amber-500/10 text-amber-800 dark:text-amber-400">
-                      <Clock className="h-3.5 w-3.5" />
-                    </span>
-                    <span>订单过期时间：仅影响后续新订单。</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-0.5 inline-flex size-5 items-center justify-center rounded-md bg-zinc-500/10 text-zinc-700 dark:text-zinc-300">
-                      <Shield className="h-3.5 w-3.5" />
-                    </span>
-                    <span>敏感配置（OAuth/支付密钥等）：仍需通过环境变量设置。</span>
-                  </li>
-                </ul>
-
                 <div className="flex flex-col gap-2">
                   <Button type="submit" disabled={isPending} className="gap-2">
                     {isPending ? (
@@ -519,6 +630,36 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                     <RefreshCcw className="h-4 w-4" />
                     恢复为当前配置
                   </Button>
+                </div>
+
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">生效说明</p>
+                  <ul className="space-y-2 text-xs text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                        <Sparkles className="h-2.5 w-2.5" />
+                      </span>
+                      <span>站点配置：刷新页面即可看到变化</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded bg-amber-500/10 text-amber-800 dark:text-amber-400">
+                        <Clock className="h-2.5 w-2.5" />
+                      </span>
+                      <span>订单过期时间：仅影响新订单</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                        <Bell className="h-2.5 w-2.5" />
+                      </span>
+                      <span>通知设置：保存后立即生效</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded bg-zinc-500/10 text-zinc-700 dark:text-zinc-300">
+                        <Shield className="h-2.5 w-2.5" />
+                      </span>
+                      <span>敏感配置：需通过环境变量设置</span>
+                    </li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>

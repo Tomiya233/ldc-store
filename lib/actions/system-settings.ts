@@ -16,6 +16,12 @@ const SYSTEM_SETTING_KEYS = {
   telegramEnabled: "telegram.enabled",
   telegramBotToken: "telegram.bot_token",
   telegramChatId: "telegram.chat_id",
+  telegramNotifyOrderCreated: "telegram.notify.order_created",
+  telegramNotifyPaymentSuccess: "telegram.notify.payment_success",
+  telegramNotifyOrderExpired: "telegram.notify.order_expired",
+  telegramNotifyRefundRequested: "telegram.notify.refund_requested",
+  telegramNotifyRefundApproved: "telegram.notify.refund_approved",
+  telegramNotifyRefundRejected: "telegram.notify.refund_rejected",
 } as const;
 
 export async function getSystemSettings(): Promise<SystemSettings> {
@@ -51,6 +57,13 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
     telegramBotToken: "", // 脱敏：不在公共函数中返回
     telegramChatId: "",   // 脱敏：不在公共函数中返回
+    // 通知开关 - 默认关闭
+    telegramNotifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
+    telegramNotifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
+    telegramNotifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
+    telegramNotifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
+    telegramNotifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
+    telegramNotifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",
   };
 
   // 为什么这样做：DB 配置是运行时数据，可能被写入非法值；这里用 safeParse 兜底，避免因“单个脏字段”导致整站 500。
@@ -69,6 +82,12 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     telegramEnabled: false,
     telegramBotToken: "",
     telegramChatId: "",
+    telegramNotifyOrderCreated: false,
+    telegramNotifyPaymentSuccess: false,
+    telegramNotifyOrderExpired: false,
+    telegramNotifyRefundRequested: false,
+    telegramNotifyRefundApproved: false,
+    telegramNotifyRefundRejected: false,
   };
 }
 
@@ -100,6 +119,12 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
     telegramEnabled,
     telegramBotToken,
     telegramChatId,
+    telegramNotifyOrderCreated,
+    telegramNotifyPaymentSuccess,
+    telegramNotifyOrderExpired,
+    telegramNotifyRefundRequested,
+    telegramNotifyRefundApproved,
+    telegramNotifyRefundRejected,
   } = validationResult.data;
 
   try {
@@ -153,6 +178,42 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
           key: SYSTEM_SETTING_KEYS.telegramChatId,
           value: telegramChatId,
           description: "Telegram Chat ID",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated,
+          value: String(telegramNotifyOrderCreated),
+          description: "新订单通知",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess,
+          value: String(telegramNotifyPaymentSuccess),
+          description: "支付成功通知",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired,
+          value: String(telegramNotifyOrderExpired),
+          description: "订单过期通知",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested,
+          value: String(telegramNotifyRefundRequested),
+          description: "退款申请通知",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved,
+          value: String(telegramNotifyRefundApproved),
+          description: "退款成功通知",
+          updatedAt: now,
+        },
+        {
+          key: SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected,
+          value: String(telegramNotifyRefundRejected),
+          description: "退款拒绝通知",
           updatedAt: now,
         },
       ])
@@ -209,6 +270,56 @@ export async function getTelegramConfig(): Promise<{
   }
 }
 
+import type { TelegramConfigWithToggles } from "@/lib/notifications/telegram";
+
+export async function getTelegramConfigWithToggles(): Promise<TelegramConfigWithToggles> {
+  const keys = [
+    SYSTEM_SETTING_KEYS.telegramEnabled,
+    SYSTEM_SETTING_KEYS.telegramBotToken,
+    SYSTEM_SETTING_KEYS.telegramChatId,
+    SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated,
+    SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess,
+    SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired,
+    SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested,
+    SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved,
+    SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected,
+  ];
+
+  try {
+    const rows = await db
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(inArray(settings.key, keys));
+
+    const map = new Map<string, string | null>(rows.map((row) => [row.key, row.value]));
+
+    return {
+      enabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
+      botToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
+      chatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
+      notifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
+      notifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
+      notifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
+      notifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
+      notifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
+      notifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",
+    };
+  } catch (error) {
+    console.error("[getTelegramConfigWithToggles] 获取 Telegram 配置失败:", error);
+    return {
+      enabled: false,
+      botToken: "",
+      chatId: "",
+      notifyOrderCreated: false,
+      notifyPaymentSuccess: false,
+      notifyOrderExpired: false,
+      notifyRefundRequested: false,
+      notifyRefundApproved: false,
+      notifyRefundRejected: false,
+    };
+  }
+}
+
 /**
  * 获取完整系统配置（仅限管理员）
  * - 包含敏感字段（Telegram Bot Token 等）
@@ -251,9 +362,14 @@ export async function getSystemSettingsForAdmin(): Promise<SystemSettings> {
     siteIcon: (map.get(SYSTEM_SETTING_KEYS.siteIcon) ?? "Store") as SystemSettings["siteIcon"],
     siteIconUrl: map.get(SYSTEM_SETTING_KEYS.siteIconUrl) ?? "",
     orderExpireMinutes: expireMinutes,
-    // 管理员可获取完整 Telegram 配置
     telegramEnabled: map.get(SYSTEM_SETTING_KEYS.telegramEnabled) === "true",
     telegramBotToken: map.get(SYSTEM_SETTING_KEYS.telegramBotToken) ?? "",
     telegramChatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
+    telegramNotifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
+    telegramNotifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
+    telegramNotifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
+    telegramNotifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
+    telegramNotifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
+    telegramNotifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",
   };
 }
