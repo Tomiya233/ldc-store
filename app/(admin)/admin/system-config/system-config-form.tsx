@@ -513,22 +513,6 @@ export function SystemConfigForm({ initialValues }: SystemConfigFormProps) {
                             
                             <FormField
                               control={form.control}
-                              name="telegramNotifyOrderExpired"
-                              render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">
-                                  <div className="space-y-0.5">
-                                    <FormLabel className="text-sm font-normal">⏰ 订单过期</FormLabel>
-                                    <FormDescription className="text-xs">订单超时未支付时</FormDescription>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
                               name="telegramNotifyRefundRequested"
                               render={({ field }) => (
                                 <FormItem className="flex flex-row items-center justify-between rounded-md border px-3 py-2">

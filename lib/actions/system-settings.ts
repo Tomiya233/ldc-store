@@ -18,7 +18,6 @@ const SYSTEM_SETTING_KEYS = {
   telegramChatId: "telegram.chat_id",
   telegramNotifyOrderCreated: "telegram.notify.order_created",
   telegramNotifyPaymentSuccess: "telegram.notify.payment_success",
-  telegramNotifyOrderExpired: "telegram.notify.order_expired",
   telegramNotifyRefundRequested: "telegram.notify.refund_requested",
   telegramNotifyRefundApproved: "telegram.notify.refund_approved",
   telegramNotifyRefundRejected: "telegram.notify.refund_rejected",
@@ -60,13 +59,12 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     // 通知开关 - 默认关闭
     telegramNotifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
     telegramNotifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
-    telegramNotifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
     telegramNotifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
     telegramNotifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
     telegramNotifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",
   };
 
-  // 为什么这样做：DB 配置是运行时数据，可能被写入非法值；这里用 safeParse 兜底，避免因“单个脏字段”导致整站 500。
+  // 为什么这样做：DB 配置是运行时数据，可能被写入非法值；这里用 safeParse 兜底，避免因"单个脏字段"导致整站 500。
   const parsed = systemSettingsSchema.safeParse(candidate);
   if (parsed.success) {
     return parsed.data;
@@ -84,7 +82,6 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     telegramChatId: "",
     telegramNotifyOrderCreated: false,
     telegramNotifyPaymentSuccess: false,
-    telegramNotifyOrderExpired: false,
     telegramNotifyRefundRequested: false,
     telegramNotifyRefundApproved: false,
     telegramNotifyRefundRejected: false,
@@ -121,7 +118,6 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
     telegramChatId,
     telegramNotifyOrderCreated,
     telegramNotifyPaymentSuccess,
-    telegramNotifyOrderExpired,
     telegramNotifyRefundRequested,
     telegramNotifyRefundApproved,
     telegramNotifyRefundRejected,
@@ -190,12 +186,6 @@ export async function updateSystemSettings(input: SystemSettingsInput): Promise<
           key: SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess,
           value: String(telegramNotifyPaymentSuccess),
           description: "支付成功通知",
-          updatedAt: now,
-        },
-        {
-          key: SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired,
-          value: String(telegramNotifyOrderExpired),
-          description: "订单过期通知",
           updatedAt: now,
         },
         {
@@ -279,7 +269,6 @@ export async function getTelegramConfigWithToggles(): Promise<TelegramConfigWith
     SYSTEM_SETTING_KEYS.telegramChatId,
     SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated,
     SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess,
-    SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired,
     SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested,
     SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved,
     SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected,
@@ -299,7 +288,6 @@ export async function getTelegramConfigWithToggles(): Promise<TelegramConfigWith
       chatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
       notifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
       notifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
-      notifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
       notifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
       notifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
       notifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",
@@ -312,7 +300,6 @@ export async function getTelegramConfigWithToggles(): Promise<TelegramConfigWith
       chatId: "",
       notifyOrderCreated: false,
       notifyPaymentSuccess: false,
-      notifyOrderExpired: false,
       notifyRefundRequested: false,
       notifyRefundApproved: false,
       notifyRefundRejected: false,
@@ -367,7 +354,6 @@ export async function getSystemSettingsForAdmin(): Promise<SystemSettings> {
     telegramChatId: map.get(SYSTEM_SETTING_KEYS.telegramChatId) ?? "",
     telegramNotifyOrderCreated: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderCreated) === "true",
     telegramNotifyPaymentSuccess: map.get(SYSTEM_SETTING_KEYS.telegramNotifyPaymentSuccess) === "true",
-    telegramNotifyOrderExpired: map.get(SYSTEM_SETTING_KEYS.telegramNotifyOrderExpired) === "true",
     telegramNotifyRefundRequested: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRequested) === "true",
     telegramNotifyRefundApproved: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundApproved) === "true",
     telegramNotifyRefundRejected: map.get(SYSTEM_SETTING_KEYS.telegramNotifyRefundRejected) === "true",

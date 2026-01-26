@@ -4,8 +4,6 @@ import {
   testTelegramConnection,
   sendNewOrderNotification,
   sendPaymentSuccessNotification,
-  sendOrderExpiredNotification,
-  sendOrderExpiredSummaryNotification,
   sendRefundRequestNotification,
   sendRefundApprovedNotification,
   sendRefundRejectedNotification,
@@ -14,7 +12,6 @@ import {
   type RestockNotificationPayload,
   type NewOrderNotificationPayload,
   type PaymentSuccessNotificationPayload,
-  type OrderExpiredNotificationPayload,
   type RefundRequestNotificationPayload,
   type RefundApprovedNotificationPayload,
   type RefundRejectedNotificationPayload,
@@ -190,7 +187,6 @@ describe("Telegram 通知模块", () => {
       chatId: "-1001234567890",
       notifyOrderCreated: true,
       notifyPaymentSuccess: true,
-      notifyOrderExpired: true,
       notifyRefundRequested: true,
       notifyRefundApproved: true,
       notifyRefundRejected: true,
@@ -285,50 +281,6 @@ describe("Telegram 通知模块", () => {
         expect(body.text).toContain("支付成功");
         expect(body.text).toContain("TRX789");
         expect(body.text).toContain("¥50.00");
-      });
-    });
-
-    describe("sendOrderExpiredNotification", () => {
-      const payload: OrderExpiredNotificationPayload = {
-        orderNo: "LD123456",
-        productName: "测试商品",
-        quantity: 1,
-        totalAmount: "50.00",
-        paymentMethod: "ldc",
-        username: "testuser",
-        expiredAt: new Date("2026-01-21T10:05:00Z"),
-      };
-
-      it("toggle=false 时跳过发送", async () => {
-        const config = { ...baseConfig, notifyOrderExpired: false };
-        const result = await sendOrderExpiredNotification(config, payload);
-        expect(result.success).toBe(false);
-        expect(result.message).toBe("订单过期通知未启用");
-      });
-
-      it("正确发送订单过期通知", async () => {
-        const result = await sendOrderExpiredNotification(baseConfig, payload);
-        expect(result.success).toBe(true);
-
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-        expect(body.text).toContain("订单过期");
-        expect(body.text).toContain("LD123456");
-      });
-    });
-
-    describe("sendOrderExpiredSummaryNotification", () => {
-      it("正确发送批量过期汇总通知", async () => {
-        const result = await sendOrderExpiredSummaryNotification(baseConfig, {
-          totalCount: 25,
-          orderNos: ["LD001", "LD002", "LD003"],
-        });
-        expect(result.success).toBe(true);
-
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-        expect(body.text).toContain("订单批量过期");
-        expect(body.text).toContain("25");
-        expect(body.text).toContain("LD001");
-        expect(body.text).toContain("其他 22 个订单");
       });
     });
 

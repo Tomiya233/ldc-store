@@ -26,7 +26,6 @@ export const telegramSettingsSchema = z.object({
     ),
   telegramNotifyOrderCreated: z.boolean().default(false),
   telegramNotifyPaymentSuccess: z.boolean().default(false),
-  telegramNotifyOrderExpired: z.boolean().default(false),
   telegramNotifyRefundRequested: z.boolean().default(false),
   telegramNotifyRefundApproved: z.boolean().default(false),
   telegramNotifyRefundRejected: z.boolean().default(false),

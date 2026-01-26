@@ -100,7 +100,7 @@ curl -X POST https://credit.linux.do/epay/pay/submit.php \
 
 - **方法：** GET `/api.php`
 - **认证：** `pid` + `key`
-- **说明：** `trade_no` 必填；`out_trade_no` 可选；`act` 可传 `order`，后端不强校验。
+- **说明：** `out_trade_no` 必填；`act` 可传 `order`，后端不强校验。
 
 #### 请求参数
 
@@ -109,8 +109,7 @@ curl -X POST https://credit.linux.do/epay/pay/submit.php \
 | act | 否 | 可选字段，建议 `order` |
 | pid | 是 | Client ID |
 | key | 是 | Client Secret |
-| trade_no | 是 | 编号 |
-| out_trade_no | 否 | 业务单号 |
+| out_trade_no | 是 | 业务单号 |
 
 #### 成功响应
 

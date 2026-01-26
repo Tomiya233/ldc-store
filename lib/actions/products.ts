@@ -35,7 +35,6 @@ async function lazyReleaseExpiredOrders() {
   lastExpireCheck = now;
 
   try {
-    // 使用 CTE 一次性处理过期订单
     await db.execute(sql`
       WITH expired AS (
         UPDATE orders
@@ -48,7 +47,6 @@ async function lazyReleaseExpiredOrders() {
       WHERE status = 'locked' AND order_id IN (SELECT id FROM expired)
     `);
   } catch (error) {
-    // 静默失败，不影响主流程
     console.error("[lazyReleaseExpiredOrders] 释放过期订单失败:", error);
   }
 }

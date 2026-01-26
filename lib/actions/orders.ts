@@ -14,31 +14,38 @@ import { db, orders, cards, products } from "@/lib/db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createOrderSchema, type CreateOrderInput } from "@/lib/validations/order";
-import { createPayment, refundOrder, isRefundEnabled, getRefundMode, getClientRefundParams, type PaymentFormData, type RefundMode, type ClientRefundParams } from "@/lib/payment/ldc";
+import {
+  createPayment,
+  refundOrder,
+  isRefundEnabled,
+  getRefundMode,
+  getClientRefundParams,
+  queryPaymentOrder,
+  type PaymentFormData,
+  type RefundMode,
+  type ClientRefundParams,
+} from "@/lib/payment/ldc";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { getExpireTime } from "@/lib/time";
 import { getSystemSettings, getTelegramConfigWithToggles } from "@/lib/actions/system-settings";
 import { logger, getRequestIdFromHeaders } from "@/lib/logger";
+import { parseWalletAmount } from "@/lib/money";
 import {
   sendNewOrderNotification,
   sendPaymentSuccessNotification,
-  sendOrderExpiredNotification,
-  sendOrderExpiredSummaryNotification,
   sendRefundRequestNotification,
   sendRefundApprovedNotification,
   sendRefundRejectedNotification,
   type NewOrderNotificationPayload,
   type PaymentSuccessNotificationPayload,
-  type OrderExpiredNotificationPayload,
   type RefundRequestNotificationPayload,
   type RefundApprovedNotificationPayload,
   type RefundRejectedNotificationPayload,
 } from "@/lib/notifications/telegram";
-
-const EXPIRED_NOTIFICATION_LIMIT = 20;
 
 /**
  * 从请求头自动获取网站 URL
@@ -225,20 +232,25 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       "订单创建成功"
     );
 
-    // 触发新订单通知（fire-and-forget）
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: NewOrderNotificationPayload = {
-        orderNo: result.order.orderNo,
-        productName: product.name,
-        quantity,
-        totalAmount: result.totalAmount.toFixed(2),
-        paymentMethod,
-        username: user.username || null,
-        createdAt: result.order.createdAt,
-        expiredAt: result.order.expiredAt!,
-      };
-      sendNewOrderNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    // 触发新订单通知
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: NewOrderNotificationPayload = {
+          orderNo: result.order.orderNo,
+          productName: product.name,
+          quantity,
+          totalAmount: result.totalAmount.toFixed(2),
+          paymentMethod,
+          username: user.username || null,
+          createdAt: result.order.createdAt,
+          expiredAt: result.order.expiredAt!,
+        };
+        await sendNewOrderNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 新订单通知发送失败:", e);
+      }
+    });
 
     return {
       success: true,
@@ -322,19 +334,24 @@ export async function handlePaymentSuccess(
       revalidatePath(`/product/${productSlug}`);
     }
 
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: PaymentSuccessNotificationPayload = {
-        orderNo: result.orderNo,
-        productName: result.productName,
-        quantity: result.quantity,
-        totalAmount: result.totalAmount,
-        paymentMethod: result.paymentMethod,
-        username: result.username,
-        paidAt: result.paidAt!,
-        tradeNo,
-      };
-      sendPaymentSuccessNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: PaymentSuccessNotificationPayload = {
+          orderNo: result.orderNo,
+          productName: result.productName,
+          quantity: result.quantity,
+          totalAmount: result.totalAmount,
+          paymentMethod: result.paymentMethod,
+          username: result.username,
+          paidAt: result.paidAt!,
+          tradeNo,
+        };
+        await sendPaymentSuccessNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 支付成功通知发送失败:", e);
+      }
+    });
 
     log.info("支付成功回调处理完成");
     return true;
@@ -371,13 +388,6 @@ export async function releaseExpiredOrders(): Promise<number> {
         )
         .returning({
           id: orders.id,
-          orderNo: orders.orderNo,
-          productName: orders.productName,
-          quantity: orders.quantity,
-          totalAmount: orders.totalAmount,
-          paymentMethod: orders.paymentMethod,
-          username: orders.username,
-          expiredAt: orders.expiredAt,
         });
 
       if (expiredOrders.length === 0) {
@@ -406,28 +416,6 @@ export async function releaseExpiredOrders(): Promise<number> {
       revalidatePath("/admin/orders");
       revalidatePath("/");
       logger.info({ action: "releaseExpiredOrders", expiredOrders: expiredOrdersData.length }, "释放过期订单完成");
-
-      getTelegramConfigWithToggles().then((config) => {
-        if (expiredOrdersData.length <= EXPIRED_NOTIFICATION_LIMIT) {
-          for (const order of expiredOrdersData) {
-            const payload: OrderExpiredNotificationPayload = {
-              orderNo: order.orderNo,
-              productName: order.productName,
-              quantity: order.quantity,
-              totalAmount: order.totalAmount,
-              paymentMethod: order.paymentMethod,
-              username: order.username,
-              expiredAt: order.expiredAt!,
-            };
-            sendOrderExpiredNotification(config, payload).catch(() => {});
-          }
-        } else {
-          sendOrderExpiredSummaryNotification(config, {
-            totalCount: expiredOrdersData.length,
-            orderNos: expiredOrdersData.slice(0, EXPIRED_NOTIFICATION_LIMIT).map((o) => o.orderNo),
-          }).catch(() => {});
-        }
-      }).catch(() => {});
     }
     return expiredOrdersData.length;
   } catch (error) {
@@ -579,6 +567,9 @@ export async function getUserOrders() {
  */
 export async function getOrderByNo(orderNo: string) {
   try {
+    const requestId = await getRequestIdFromHeaders();
+    const log = logger.child({ requestId, action: "getOrderByNo", orderNo });
+
     const session = await auth();
     const user = session?.user as { id?: string; provider?: string } | undefined;
 
@@ -586,24 +577,71 @@ export async function getOrderByNo(orderNo: string) {
       return { success: false, message: "请先登录" };
     }
 
-    const order = await db.query.orders.findFirst({
-      where: and(
-        eq(orders.orderNo, orderNo),
-        eq(orders.userId, user.id)
-      ),
-      with: {
-        cards: {
-          columns: {
-            id: true,
-            content: true,
-            status: true,
+    const userId = user.id;
+
+    function toCents(value: string): number | null {
+      const amount = parseWalletAmount(value);
+      if (amount === null) return null;
+      return Math.round(amount * 100);
+    }
+
+    const fetchOrder = () =>
+      db.query.orders.findFirst({
+        where: and(eq(orders.orderNo, orderNo), eq(orders.userId, userId)),
+        with: {
+          cards: {
+            columns: {
+              id: true,
+              content: true,
+              status: true,
+            },
           },
         },
-      },
-    });
+      });
+
+    let order = await fetchOrder();
 
     if (!order) {
       return { success: false, message: "订单不存在或无权访问" };
+    }
+
+    // notify 可能因为网络/平台重试失败而迟迟未到；这里做一次“按需补偿查询”。
+    // 重要：只对待支付 + LDC 支付的订单尝试，且必须校验金额一致后才允许发货。
+    if (order.status === "pending" && order.paymentMethod === "ldc") {
+      try {
+        const remote = await queryPaymentOrder({ outTradeNo: order.orderNo });
+        if (remote && Number(remote.status) === 1) {
+          const expectedCents = toCents(order.totalAmount);
+          const receivedCents = toCents(remote.money);
+
+          if (expectedCents === null || receivedCents === null || expectedCents !== receivedCents) {
+            log.warn(
+              {
+                expected: order.totalAmount,
+                received: remote.money,
+                remoteTradeNo: remote.trade_no,
+              },
+              "支付结果补偿查询金额不匹配"
+            );
+          } else {
+            const ok = await handlePaymentSuccess(order.orderNo, remote.trade_no);
+            if (!ok) {
+              log.warn(
+                { remoteTradeNo: remote.trade_no },
+                "支付结果补偿查询触发 handlePaymentSuccess 失败（可能已被并发处理）"
+              );
+            }
+            // 无论 handlePaymentSuccess 返回值如何，都再读一次数据库确认最新状态（兼容并发 notify）。
+            const refreshed = await fetchOrder();
+            if (refreshed) {
+              order = refreshed;
+            }
+          }
+        }
+      } catch (error) {
+        // 兜底：查询失败不阻塞用户查单（仍可等待 notify 或稍后刷新）。
+        log.warn({ err: error }, "支付结果补偿查询失败");
+      }
     }
 
     // 仅当订单已完成时才显示卡密
@@ -775,20 +813,25 @@ export async function requestRefund(
     revalidatePath("/order/my");
     revalidatePath("/admin/orders");
 
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: RefundRequestNotificationPayload = {
-        orderNo: order.orderNo,
-        productName: order.productName,
-        quantity: order.quantity,
-        totalAmount: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        username: order.username,
-        tradeNo: order.tradeNo,
-        refundReason: reason.trim(),
-        refundRequestedAt: new Date(),
-      };
-      sendRefundRequestNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: RefundRequestNotificationPayload = {
+          orderNo: order.orderNo,
+          productName: order.productName,
+          quantity: order.quantity,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          username: order.username,
+          tradeNo: order.tradeNo,
+          refundReason: reason.trim(),
+          refundRequestedAt: new Date(),
+        };
+        await sendRefundRequestNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 退款申请通知发送失败:", e);
+      }
+    });
 
     log.info({ userId: user.id, orderId: order.id }, "退款申请已提交");
     return { success: true, message: "退款申请已提交，请等待审核" };
@@ -885,20 +928,25 @@ export async function approveRefund(
     revalidatePath("/admin/orders");
     revalidatePath("/order/my");
 
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: RefundApprovedNotificationPayload = {
-        orderNo: order.orderNo,
-        productName: order.productName,
-        quantity: order.quantity,
-        totalAmount: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        username: order.username,
-        tradeNo: order.tradeNo,
-        refundedAt: new Date(),
-        adminRemark: adminRemark || null,
-      };
-      sendRefundApprovedNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: RefundApprovedNotificationPayload = {
+          orderNo: order.orderNo,
+          productName: order.productName,
+          quantity: order.quantity,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          username: order.username,
+          tradeNo: order.tradeNo,
+          refundedAt: new Date(),
+          adminRemark: adminRemark || null,
+        };
+        await sendRefundApprovedNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 退款成功通知发送失败:", e);
+      }
+    });
 
     log.info({ orderNo: order.orderNo, tradeNo: order.tradeNo }, "退款成功");
     return { success: true, message: "退款成功" };
@@ -955,19 +1003,24 @@ export async function rejectRefund(
     revalidatePath("/admin/orders");
     revalidatePath("/order/my");
 
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: RefundRejectedNotificationPayload = {
-        orderNo: order.orderNo,
-        productName: order.productName,
-        quantity: order.quantity,
-        totalAmount: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        username: order.username,
-        refundReason: order.refundReason,
-        adminRemark: adminRemark || null,
-      };
-      sendRefundRejectedNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: RefundRejectedNotificationPayload = {
+          orderNo: order.orderNo,
+          productName: order.productName,
+          quantity: order.quantity,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          username: order.username,
+          refundReason: order.refundReason,
+          adminRemark: adminRemark || null,
+        };
+        await sendRefundRejectedNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 退款拒绝通知发送失败:", e);
+      }
+    });
 
     log.info({ orderNo: order.orderNo }, "已拒绝退款申请");
     return { success: true, message: "已拒绝退款申请" };
@@ -1138,20 +1191,25 @@ export async function markOrderRefunded(
     revalidatePath("/admin/orders");
     revalidatePath("/order/my");
 
-    getTelegramConfigWithToggles().then((config) => {
-      const payload: RefundApprovedNotificationPayload = {
-        orderNo: order.orderNo,
-        productName: order.productName,
-        quantity: order.quantity,
-        totalAmount: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        username: order.username,
-        tradeNo: order.tradeNo,
-        refundedAt: new Date(),
-        adminRemark: adminRemark || null,
-      };
-      sendRefundApprovedNotification(config, payload).catch(() => {});
-    }).catch(() => {});
+    after(async () => {
+      try {
+        const config = await getTelegramConfigWithToggles();
+        const payload: RefundApprovedNotificationPayload = {
+          orderNo: order.orderNo,
+          productName: order.productName,
+          quantity: order.quantity,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          username: order.username,
+          tradeNo: order.tradeNo,
+          refundedAt: new Date(),
+          adminRemark: adminRemark || null,
+        };
+        await sendRefundApprovedNotification(config, payload);
+      } catch (e) {
+        console.error("[Telegram] 退款成功通知发送失败:", e);
+      }
+    });
 
     log.info({ orderNo: order.orderNo, tradeNo: order.tradeNo }, "订单已标记为已退款");
     return { success: true, message: "订单状态已更新为已退款" };

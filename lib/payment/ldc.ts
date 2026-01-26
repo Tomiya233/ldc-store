@@ -103,6 +103,11 @@ interface OrderQueryResult {
   status: number;
 }
 
+function isLikelyCloudflareBlock(html: string): boolean {
+  const text = html.toLowerCase();
+  return text.includes("just a moment") || text.includes("cloudflare");
+}
+
 /**
  * 生成签名
  * 1. 取所有非空字段（排除 sign、sign_type）
@@ -228,9 +233,10 @@ export function createPayment(
  * 查询订单状态
  * 支持通过 LDC_PROXY_URL 代理请求
  */
-export async function queryPaymentOrder(
-  tradeNo: string
-): Promise<OrderQueryResult> {
+export async function queryPaymentOrder(input: {
+  outTradeNo?: string;
+  tradeNo?: string;
+}): Promise<OrderQueryResult | null> {
   const pid = process.env.LDC_CLIENT_ID;
   const secret = process.env.LDC_CLIENT_SECRET;
 
@@ -238,32 +244,76 @@ export async function queryPaymentOrder(
     throw new Error("支付配置未设置");
   }
 
+  if (!input.outTradeNo && !input.tradeNo) {
+    throw new Error("查询订单缺少 outTradeNo 或 tradeNo");
+  }
+
   const apiUrl = getApiUrl();
-  const params = new URLSearchParams({
+  const searchParams = new URLSearchParams({
     act: "order",
     pid,
     key: secret,
-    trade_no: tradeNo,
   });
 
-  const url = `${apiUrl}?${params}`;
+  // 文档：out_trade_no 必填；trade_no 为兼容字段。
+  if (input.outTradeNo) {
+    searchParams.set("out_trade_no", input.outTradeNo);
+  } else if (input.tradeNo) {
+    searchParams.set("trade_no", input.tradeNo);
+  }
+
+  const url = `${apiUrl}?${searchParams}`;
   console.log("LDC 订单查询请求:", url.replace(secret, "***"));
 
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof (AbortSignal as unknown as { timeout?: unknown }).timeout === "function"
+      ? (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(10_000)
+      : undefined;
+
   const response = await fetch(url, {
+    signal,
     headers: {
       "Accept": "application/json",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
   });
-  
+
   const text = await response.text();
-  
-  try {
-    const result = JSON.parse(text);
-    if (result.code !== 1) {
-      throw new Error(result.msg || "查询订单失败");
+
+  // 文档补充：订单不存在会返回 HTTP 404。
+  if (response.status === 404) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    if (isLikelyCloudflareBlock(text)) {
+      throw new Error("支付平台被 Cloudflare 拦截，请配置 LDC_PROXY_URL 环境变量使用代理");
     }
-    return result;
+    throw new Error("支付平台返回格式异常，请检查订单查询接口配置");
+  }
+
+  try {
+    const raw = JSON.parse(text) as Partial<OrderQueryResult> & {
+      code?: number | string;
+      status?: number | string;
+      msg?: string;
+    };
+
+    const code = Number(raw.code);
+    if (code !== 1) {
+      if (code === -1) return null;
+      throw new Error(raw.msg || "查询订单失败");
+    }
+
+    // 兼容后端返回字符串数值（例如 '1'）。
+    const status = Number(raw.status);
+    return {
+      ...(raw as OrderQueryResult),
+      code,
+      status,
+    };
   } catch (e) {
     console.error("订单查询响应解析失败:", text.substring(0, 200));
     throw e;
